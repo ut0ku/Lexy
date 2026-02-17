@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
     
-    loadPage('home');
+    loadPage('library');
     
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -128,19 +128,34 @@ async function loadPage(pageName) {
         
         switch(pageName) {
             case 'library':
+                // Принудительно обновляем данные при каждом переходе на библиотеку
+                if (typeof loadPublicDecksFromServer === 'function') loadPublicDecksFromServer();
                 if (typeof initLibraryPage === 'function') initLibraryPage();
                 break;
             case 'home':
+                // Обновляем данные при переходе
+                if (typeof loadState === 'function') loadState();
                 if (typeof initHomePage === 'function') initHomePage();
                 break;
             case 'mydecks':
+                // Обновляем данные колод при переходе
+                if (typeof loadState === 'function') loadState();
                 if (typeof initMyDecksPage === 'function') initMyDecksPage();
                 break;
             case 'stats':
+                // Обновляем данные при переходе
+                if (typeof loadState === 'function') loadState();
                 if (typeof initStatsPage === 'function') initStatsPage();
                 break;
             case 'profile':
+                // Обновляем данные при переходе
+                if (typeof loadState === 'function') loadState();
                 if (typeof initProfilePage === 'function') initProfilePage();
+                break;
+            case 'admin':
+                // Обновляем данные при переходе
+                if (typeof loadState === 'function') loadState();
+                if (typeof initAdminPage === 'function') initAdminPage();
                 break;
         }
     } catch (error) {

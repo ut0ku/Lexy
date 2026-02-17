@@ -1,9 +1,30 @@
 function initProfilePage() {
+    const token = localStorage.getItem('lexy_token');
+    const userStr = localStorage.getItem('lexy_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    
+    if (!token || !user) {
+        showNotification('Войдите для доступа к профилю', 'error');
+        document.querySelector('[data-tab="home"]').click();
+        return;
+    }
+    
+    AppState.user = user;
     updateProfileDisplay();
     
     const editBtn = document.getElementById('editProfileBtn');
     if (editBtn) {
         editBtn.addEventListener('click', showEditProfileModal);
+    }
+    
+    // Скрываем кнопку удаления аккаунта для админа
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    if (deleteBtn) {
+        if (user.role === 'admin') {
+            deleteBtn.style.display = 'none';
+        } else {
+            deleteBtn.addEventListener('click', deleteAccount);
+        }
     }
     
     // Initialize theme toggle based on current theme
@@ -45,11 +66,6 @@ function initProfilePage() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', logout);
-    }
-    
-    const deleteBtn = document.getElementById('deleteAccountBtn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', deleteAccount);
     }
 }
 
@@ -208,16 +224,22 @@ function clearAllData() {
     }
 }
 
-function logout() {
-    if (confirm('Выйти из аккаунта?')) {
-        localStorage.removeItem('linguaState');
-        location.reload();
-    }
-}
+// Удалить эту функцию - используется logout из auth.js
 
 function deleteAccount() {
     if (confirm('Это действие нельзя отменить. Удалить аккаунт?')) {
-        localStorage.removeItem('linguaState');
-        location.reload();
+        ApiService.deleteAccount()
+            .then(() => {
+                localStorage.removeItem('lexy_token');
+                localStorage.removeItem('lexy_user');
+                localStorage.removeItem('linguaState');
+                showNotification('Аккаунт удален');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            })
+            .catch(error => {
+                showNotification(error.message, 'error');
+            });
     }
 }

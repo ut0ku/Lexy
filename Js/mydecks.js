@@ -449,7 +449,8 @@ function startStudy(deckId, mode) {
         mode: mode,
         cards: [...deck.cards],
         currentIndex: 0,
-        results: []
+        results: [],
+        startTime: Date.now()
     };
     
     showStudySession();
@@ -530,22 +531,45 @@ function showStudySession() {
 
     
     if (!isWritten) {
-        // Кнопки с анимацией свайпа
-        document.getElementById('dontKnowBtn')?.addEventListener('click', () => {
-            animateSwipe('left', () => handleStudyResult(false, correctAnswer));
-        });
-        
-        document.getElementById('knowBtn')?.addEventListener('click', () => {
-            animateSwipe('right', () => handleStudyResult(true, correctAnswer));
-        });
-        
         // Свайпы для ПК (мышь) и мобильных (тач)
         const studyCard = document.getElementById('studyCard');
         let startX = 0;
         let startY = 0;
         let isDragging = false;
         
-        // Улучшенная функция драга для мгновенного исчезновения при максимальном свайпе
+        // Функция анимации свайпа при нажатии на кнопки
+        function animateSwipe(direction, callback) {
+            const startPos = 0;
+            const endPos = direction === 'right' ? 300 : -300;
+            const startTime = performance.now();
+            const duration = 450;
+            
+            studyCard.style.transition = 'none';
+            
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                const currentPos = startPos + (endPos - startPos) * easeProgress;
+                
+                studyCard.style.transform = `translateX(${currentPos}px) rotate(${currentPos * 0.1}deg)`;
+                studyCard.style.opacity = 1 - progress;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    studyCard.style.transition = '';
+                    studyCard.style.transform = '';
+                    studyCard.style.opacity = '';
+                    callback();
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Функция драга для свайпа
         function drag(e) {
             if (!isDragging) return;
             e.preventDefault();
@@ -559,12 +583,8 @@ function showStudySession() {
             }
             
             const diff = currentX - startX;
-            
-            // Ограничиваем максимальный сдвиг
             const maxDiff = 150;
             const limitedDiff = Math.max(-maxDiff, Math.min(maxDiff, diff));
-            
-            // Плавное затухание при свайпе
             const opacity = Math.min(Math.abs(limitedDiff) / maxDiff, 0.8);
             
             if (limitedDiff > 0) {
@@ -577,35 +597,12 @@ function showStudySession() {
                 studyCard.style.borderColor = 'var(--danger)';
             }
             
-            // Если дошли до максимального сдвига, сразу завершаем
             if (Math.abs(diff) >= maxDiff) {
                 isDragging = false;
                 const direction = diff > 0 ? 'right' : 'left';
                 animateSwipe(direction, () => handleStudyResult(direction === 'right', correctAnswer));
             }
         }
-        
-        // Удаляем старые обработчики перед добавлением новых
-        studyCard.removeEventListener('mousedown', startDrag);
-        studyCard.removeEventListener('mousemove', drag);
-        studyCard.removeEventListener('mouseup', endDrag);
-        studyCard.removeEventListener('mouseleave', cancelDrag);
-        studyCard.removeEventListener('touchstart', startDrag);
-        studyCard.removeEventListener('touchmove', drag);
-        studyCard.removeEventListener('touchend', endDrag);
-        studyCard.removeEventListener('touchcancel', cancelDrag);
-        
-        // Для мыши
-        studyCard.addEventListener('mousedown', startDrag);
-        studyCard.addEventListener('mousemove', drag);
-        studyCard.addEventListener('mouseup', endDrag);
-        studyCard.addEventListener('mouseleave', cancelDrag);
-        
-        // Для тач-устройств
-        studyCard.addEventListener('touchstart', startDrag);
-        studyCard.addEventListener('touchmove', drag);
-        studyCard.addEventListener('touchend', endDrag);
-        studyCard.addEventListener('touchcancel', cancelDrag);
         
         function startDrag(e) {
             e.preventDefault();
@@ -638,16 +635,12 @@ function showStudySession() {
             const diff = endX - startX;
             
             if (Math.abs(diff) > 50) {
-                // Свайп вправо - знаю
                 if (diff > 0) {
                     animateSwipe('right', () => handleStudyResult(true, correctAnswer));
-                } 
-                // Свайп влево - не знаю
-                else {
+                } else {
                     animateSwipe('left', () => handleStudyResult(false, correctAnswer));
                 }
             } else {
-                // Возвращаем карточку на место
                 studyCard.style.transition = 'all 0.2s';
                 studyCard.style.transform = '';
                 studyCard.style.boxShadow = '';
@@ -669,77 +662,44 @@ function showStudySession() {
             isDragging = false;
         }
         
-        // Функция анимации свайпа при нажатии на кнопки
-        function animateSwipe(direction, callback) {
-            const startPos = 0;
-            const endPos = direction === 'right' ? 300 : -300;
-            const startTime = performance.now();
-            const duration = 450; // Замедлили до 450ms для плавности
-            
-            studyCard.style.transition = 'none';
-            
-            function animate(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                
-                // Easing function для плавности
-                const easeProgress = 1 - Math.pow(1 - progress, 3);
-                const currentPos = startPos + (endPos - startPos) * easeProgress;
-                
-                studyCard.style.transform = `translateX(${currentPos}px) rotate(${currentPos * 0.1}deg)`;
-                studyCard.style.opacity = 1 - progress;
-                
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    studyCard.style.transition = '';
-                    studyCard.style.transform = '';
-                    studyCard.style.opacity = '';
-                    callback();
-                }
-            }
-            
-            requestAnimationFrame(animate);
+        // Удаляем старые обработчики перед добавлением новых
+        studyCard.removeEventListener('mousedown', startDrag);
+        studyCard.removeEventListener('mousemove', drag);
+        studyCard.removeEventListener('mouseup', endDrag);
+        studyCard.removeEventListener('mouseleave', cancelDrag);
+        studyCard.removeEventListener('touchstart', startDrag);
+        studyCard.removeEventListener('touchmove', drag);
+        studyCard.removeEventListener('touchend', endDrag);
+        studyCard.removeEventListener('touchcancel', cancelDrag);
+        
+        // Добавляем обработчики для мыши
+        studyCard.addEventListener('mousedown', startDrag);
+        studyCard.addEventListener('mousemove', drag);
+        studyCard.addEventListener('mouseup', endDrag);
+        studyCard.addEventListener('mouseleave', cancelDrag);
+        
+        // Добавляем обработчики для тач-устройств
+        studyCard.addEventListener('touchstart', startDrag);
+        studyCard.addEventListener('touchmove', drag);
+        studyCard.addEventListener('touchend', endDrag);
+        studyCard.addEventListener('touchcancel', cancelDrag);
+        
+        // Кнопки "Знаю" и "Не знаю"
+        const dontKnowBtn = document.getElementById('dontKnowBtn');
+        const knowBtn = document.getElementById('knowBtn');
+        
+        if (dontKnowBtn) {
+            dontKnowBtn.onclick = null;
+            dontKnowBtn.addEventListener('click', () => {
+                animateSwipe('left', () => handleStudyResult(false, correctAnswer));
+            });
         }
         
-        // Улучшенная функция драга для мгновенного исчезновения при максимальном свайпе
-        function drag(e) {
-            if (!isDragging) return;
-            e.preventDefault();
-            e.stopPropagation();
-            
-            let currentX;
-            if (e.type === 'mousemove') {
-                currentX = e.clientX;
-            } else {
-                currentX = e.touches[0].clientX;
-            }
-            
-            const diff = currentX - startX;
-            
-            // Ограничиваем максимальный сдвиг
-            const maxDiff = 150;
-            const limitedDiff = Math.max(-maxDiff, Math.min(maxDiff, diff));
-            
-            // Плавное затухание при свайпе
-            const opacity = Math.min(Math.abs(limitedDiff) / maxDiff, 0.8);
-            
-            if (limitedDiff > 0) {
-                studyCard.style.transform = `translateX(${limitedDiff}px) rotate(${limitedDiff * 0.2}deg)`;
-                studyCard.style.boxShadow = `-10px 0 20px rgba(52, 199, 89, ${opacity})`;
-                studyCard.style.borderColor = 'var(--success)';
-            } else {
-                studyCard.style.transform = `translateX(${limitedDiff}px) rotate(${limitedDiff * 0.2}deg)`;
-                studyCard.style.boxShadow = `10px 0 20px rgba(255, 59, 48, ${opacity})`;
-                studyCard.style.borderColor = 'var(--danger)';
-            }
-            
-            // Если дошли до максимального сдвига, сразу завершаем
-            if (Math.abs(diff) >= maxDiff) {
-                isDragging = false;
-                const direction = diff > 0 ? 'right' : 'left';
-                animateSwipe(direction, () => handleStudyResult(direction === 'right', correctAnswer));
-            }
+        if (knowBtn) {
+            knowBtn.onclick = null;
+            knowBtn.addEventListener('click', () => {
+                animateSwipe('right', () => handleStudyResult(true, correctAnswer));
+            });
         }
     } else {
         document.getElementById('checkAnswer')?.addEventListener('click', () => {
@@ -806,6 +766,13 @@ function handleStudyResult(knew, correctAnswer) {
 }
 
 function showCompletionModal() {
+    // Сохраняем время занятий
+    const study = AppState.currentStudy;
+    if (study && study.startTime) {
+        const sessionTime = Math.floor((Date.now() - study.startTime) / 1000); // в секундах
+        AppState.user.studyTime += sessionTime;
+    }
+    
     updateStreak();
     saveState();
     

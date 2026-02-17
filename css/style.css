@@ -1146,6 +1146,26 @@ input:focus, textarea:focus {
     border: 1px solid var(--border);
 }
 
+.user-role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 6px;
+    text-transform: uppercase;
+}
+
+.user-role-badge.admin {
+    background: linear-gradient(135deg, #ecc67e, #d4a84b);
+    color: #1a1a1a;
+}
+
+.user-role-badge.user {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
 .avatar {
     width: 70px;
     height: 70px;
@@ -1246,6 +1266,12 @@ input:focus, textarea:focus {
 /* Утилиты */
 .hidden {
     display: none !important;
+}
+
+/* Экран загрузки */
+#loading-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .mt-20 {
@@ -1842,27 +1868,27 @@ input:focus, textarea:focus {
 }
 
 .icon-smart {
-    background-image: url('../icons/cpu-gold.svg');
+    background-image: url('../icons main/cpu-gold.svg');
 }
 
 .icon-decks {
-    background-image: url('../icons/wallet-cards-gold.svg');
+    background-image: url('../icons main/wallet-cards-gold.svg');
 }
 
 .icon-star {
-    background-image: url('../icons/star-gold.svg');
+    background-image: url('../icons main/star-gold.svg');
 }
 
 .icon-stats {
-    background-image: url('../icons/stat-gold.svg');
+    background-image: url('../icons main/stat-gold.svg');
 }
 
 .icon-import {
-    background-image: url('../icons/import-gold.svg');
+    background-image: url('../icons main/import-gold.svg');
 }
 
 .icon-sync {
-    background-image: url('../icons/sync-gold.svg');
+    background-image: url('../icons main/sync-gold.svg');
 }
 
 .feature-card h3 {

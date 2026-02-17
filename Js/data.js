@@ -8,6 +8,7 @@ const AppState = {
         streak: 0,
         lastStudyDate: null,
         learnedWords: 0,
+        studyTime: 0,
         activity: {}
     },
     
@@ -107,3 +108,15 @@ function updateStreak() {
 
 // Инициализация
 loadState();
+
+// Скрыть вкладку Профиль при загрузке если не авторизован
+const token = localStorage.getItem('lexy_token');
+if (!token) {
+    const profileTab = document.querySelector('[data-tab="profile"]');
+    if (profileTab) profileTab.style.display = 'none';
+}
+
+// Обновить кнопку авторизации после загрузки
+if (typeof updateAuthButton === 'function') {
+    setTimeout(updateAuthButton, 100);
+}

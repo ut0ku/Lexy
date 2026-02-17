@@ -68,33 +68,6 @@ function startDemoCards() {
     }
 }
 
-// Обработка регистрации
-function handleRegister(event) {
-    event.preventDefault();
-    
-    const name = document.getElementById('regName').value;
-    const username = document.getElementById('regUsername').value;
-    const password = document.getElementById('regPassword').value;
-    
-    if (!name || !username || !password) {
-        showNotification('Пожалуйста, заполните все поля', 'error');
-        return;
-    }
-    
-    // Сохраняем данные пользователя
-    AppState.user.name = name;
-    AppState.user.username = username;
-    AppState.user.isRegistered = true;
-    saveState();
-    
-    showNotification('Аккаунт создан! Добро пожаловать в Lexy!');
-    
-    // Перенаправляем на профиль
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector('[data-tab="profile"]').classList.add('active');
-    loadPage('profile');
-}
-
 // Переход на профиль
 function goToProfile() {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -106,5 +79,4 @@ function goToProfile() {
 window.startDemoCards = startDemoCards;
 window.flipDemoCard = flipDemoCard;
 window.nextDemoCard = nextDemoCard;
-window.handleRegister = handleRegister;
 window.goToProfile = goToProfile;

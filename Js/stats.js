@@ -14,7 +14,8 @@ function updateStatsDisplay() {
     
     document.getElementById('learnedWordsStat').textContent = AppState.user.learnedWords;
     
-    const studyTime = Math.floor(AppState.user.learnedWords * 0.3);
+    // Используем реальное время занятий (в минутах)
+    const studyTime = Math.floor(AppState.user.studyTime / 60);
     document.getElementById('studyTimeStat').textContent = studyTime;
     
     const accuracy = AppState.user.learnedWords > 0 ? 
