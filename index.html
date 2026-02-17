@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaCards · Интервальные повторения</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=HK+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=2">
+    <link rel="stylesheet" href="css/themes.css?v=2">
+    <link rel="stylesheet" href="css/auth.css?v=2">
+</head>
+<body class="dark-theme">
+    <!-- Окно авторизации -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-container">
+            <button class="auth-close" onclick="closeAuthModal()">×</button>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-auth-tab="login" onclick="switchAuthTab('login')">Вход</button>
+                <button class="auth-tab" data-auth-tab="register" onclick="switchAuthTab('register')">Регистрация</button>
+            </div>
+            
+            <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" placeholder="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Пароль</label>
+                    <input type="password" id="loginPassword" placeholder="Пароль" required>
+                </div>
+                <button type="submit" class="btn btn-full">Войти</button>
+            </form>
+            
+            <form class="auth-form hidden" id="registerFormModal" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="regNameModal">Имя</label>
+                    <input type="text" id="regNameModal" placeholder="Ваше имя" required>
+                </div>
+                <div class="form-group">
+                    <label for="regUsernameModal">Username</label>
+                    <input type="text" id="regUsernameModal" placeholder="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPasswordModal">Пароль</label>
+                    <input type="password" id="regPasswordModal" placeholder="Придумайте пароль" required>
+                </div>
+                <button type="submit" class="btn btn-full">Создать аккаунт</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Кнопка входа -->
+    <button class="auth-btn" id="authBtn" onclick="openAuthModal()">
+        <span class="auth-btn-text">Вход</span>
+    </button>
+
+    <!-- Экран загрузки -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <h1 class="loading-title">Lexy</h1>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Навигация между вкладками -->
+    <div class="nav-tabs">
+        <span class="nav-logo">Lexy</span>
+        <div class="nav-buttons">
+            <button class="tab-btn" data-tab="home">Главная</button>
+            <button class="tab-btn active" data-tab="library">Библиотека</button>
+            <button class="tab-btn" data-tab="mydecks">Мои колоды</button>
+            <button class="tab-btn" data-tab="stats">Статистика</button>
+            <button class="tab-btn" data-tab="profile">Профиль</button>
+            <button class="tab-btn" data-tab="admin" id="adminTab" style="display: none;">Админ</button>
+        </div>
+    </div>
+
+    <!-- Контейнер для загрузки страниц -->
+    <main id="content" class="container"></main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-section">
+            <span class="footer-title" data-dropdown="authors">Authors</span>
+            <div class="footer-dropdown" id="authors">
+                <a href="https://github.com/ut0ku" target="_blank" rel="noopener noreferrer">ut0ku</a>
+                <a href="https://github.com/karma-ofc" target="_blank" rel="noopener noreferrer">karma-ofc</a>
+            </div>
+        </div>
+        <div class="footer-section">
+            <span class="footer-title" data-dropdown="about">About</span>
+            <div class="footer-dropdown" id="about">
+                <a href="#" data-modal="terms-conditions">Terms and Conditions</a>
+                <a href="#" data-modal="terms-of-use">Terms of Use</a>
+                <a href="#" data-modal="privacy-policy">Privacy Policy</a>
+            </div>
+        </div>
+        <div class="footer-section">
+            <span class="footer-title" data-dropdown="help">Help</span>
+            <div class="footer-dropdown" id="help">
+                <a href="#" data-modal="faq">FAQ</a>
+                <a href="#" data-modal="contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Модальные окна -->
+    <div id="modalContainer"></div>
+
+    <script src="js/auth.js?v=2"></script>
+    <script src="js/api.js?v=2"></script>
+    <script src="js/data.js?v=2"></script>
+    <script src="js/library.js?v=2"></script>
+    <script src="js/home.js?v=2"></script>
+    <script src="js/mydecks.js?v=2"></script>
+    <script src="js/stats.js?v=2"></script>
+    <script src="js/profile.js?v=2"></script>
+    <script src="js/admin.js?v=2"></script>
+    <script src="js/app.js?v=2"></script>
+</body>
+</html>

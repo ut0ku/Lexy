@@ -1,0 +1,51 @@
+<div class="stats-page">
+    <h1>Статистика</h1>
+    
+    <!-- Streak -->
+    <div class="streak-box">
+        <div class="streak-icon"><span class="fire-emoji">🔥</span></div>
+        <div>
+            <div class="streak-value" id="streakDisplay">0</div>
+            <div class="streak-label" id="streakLabel">дней подряд</div>
+        </div>
+    </div>
+    
+    <!-- Основные показатели -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="learnedWordsStat">0</div>
+            <div class="stat-label">выучено слов</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-value" id="studyTimeStat">0</div>
+            <div class="stat-label">минут занятий</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-value" id="accuracyStat">0%</div>
+            <div class="stat-label">точность</div>
+        </div>
+    </div>
+    
+    <!-- Активность с подписями как на GitHub -->
+    <h2>Активность</h2>
+    <div class="activity-calendar-container">
+        <div class="calendar-wrapper">
+            <!-- Подписи дней недели слева -->
+            <div class="weekdays">
+                <div class="weekday-label">Пн</div>
+                <div class="weekday-label">Ср</div>
+                <div class="weekday-label">Пт</div>
+            </div>
+            
+            <!-- Календарь с месяцами -->
+            <div class="calendar-grid">
+                <!-- Подписи месяцев -->
+                <div class="month-labels" id="monthLabels"></div>
+                <!-- Сетка активности -->
+                <div class="activity-calendar" id="activityCalendar"></div>
+            </div>
+        </div>
+    </div>
+</div>

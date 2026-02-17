@@ -1,0 +1,254 @@
+<div class="admin-page">
+    <h1>Панель администратора</h1>
+    
+    <div class="admin-section">
+        <h2>Публичные колоды библиотеки</h2>
+        <button class="btn" id="createPublicDeckBtn" style="margin-bottom: 20px;">+ Создать колоду</button>
+        
+        <div id="adminDecksList" class="decks-grid">
+            <p style="color: var(--text-secondary);">Загрузка...</p>
+        </div>
+    </div>
+
+    <!-- Modal for creating-editing public deck -->
+    <div class="modal-overlay" id="publicDeckModal">
+        <div class="modal-content">
+            <h3 id="publicDeckModalTitle">Создать колоду</h3>
+            <div class="form-group">
+                <label>Название</label>
+                <input type="text" id="publicDeckName" placeholder="Название колоды">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="publicDeckDescription" placeholder="Описание колоды" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Язык</label>
+                <select id="publicDeckLang">
+                    <option value="Английский">Английский</option>
+                    <option value="Немецкий">Немецкий</option>
+                    <option value="Французский">Французский</option>
+                    <option value="Испанский">Испанский</option>
+                    <option value="Итальянский">Итальянский</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Категории (выберите нужные)</label>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="publicDeckCategoryNew" value="new">
+                        Новые
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="publicDeckCategoryPopular" value="popular">
+                        Популярные
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="publicDeckCategoryRecommended" value="recommended">
+                        Рекомендуемые
+                    </label>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" id="savePublicDeckBtn">Сохранить</button>
+                <button class="btn btn-outline" id="cancelPublicDeckBtn">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for managing cards in public deck -->
+    <div class="modal-overlay" id="publicDeckCardsModal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <h3 id="publicDeckCardsTitle">Управление карточками</h3>
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Добавить карточку</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newPublicCardFront" placeholder="Слово" style="flex: 1; min-width: 150px;">
+                    <input type="text" id="newPublicCardBack" placeholder="Перевод" style="flex: 1; min-width: 150px;">
+                    <button class="btn" id="addPublicCardBtn">+</button>
+                </div>
+            </div>
+            
+            <div id="publicCardsList" style="margin-top: 20px;">
+                <p style="color: var(--text-secondary);">Загрузка...</p>
+            </div>
+            
+            <button class="btn btn-outline" id="closePublicCardsModal" style="margin-top: 20px;">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-page {
+    padding: 20px;
+    position: relative;
+}
+
+.admin-section {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.admin-section h2 {
+    margin-bottom: 15px;
+    color: var(--text-primary);
+}
+
+.decks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.deck-card {
+    background: var(--bg-primary);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.deck-card:hover {
+    transform: translateY(-2px);
+}
+
+.deck-preview {
+    height: 80px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.deck-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 5px;
+}
+
+.deck-info {
+    padding: 12px;
+}
+
+.deck-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.deck-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.admin-deck-card .deck-actions .btn-icon {
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.admin-deck-card .deck-actions .btn-icon:hover {
+    background: rgba(0,0,0,0.7);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.public-card-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.public-card-item .card-content {
+    flex: 1;
+    display: flex;
+    gap: 15px;
+}
+
+.public-card-item .card-word,
+.public-card-item .card-translation {
+    color: var(--text-primary);
+}
+
+.public-card-item .card-word {
+    font-weight: 600;
+    min-width: 100px;
+}
+
+.public-card-item .delete-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    display: none;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+}
+</style>
