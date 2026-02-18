@@ -1,9 +1,6 @@
 /* Кнопка входа в навбаре */
 .auth-btn {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 10px 20px;
+    padding: 8px 16px;
     background: #ecc67e;
     color: #1a1a1a;
     border: none;
@@ -11,13 +8,22 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    z-index: 1000;
     transition: all 0.2s;
+    margin-left: auto;
 }
 
 .auth-btn:hover {
     background: #d4b56a;
-    transform: translateY(-2px);
+}
+
+/* Мобильная адаптация кнопки входа */
+@media (max-width: 600px) {
+    .nav-tabs .auth-btn {
+        display: flex;
+        margin-left: 0;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
 }
 
 .auth-btn.logged-in {
@@ -63,13 +69,14 @@
 .auth-container {
     background: var(--bg-secondary);
     border-radius: 20px;
-    padding: 32px;
+    padding: 40px 40px 32px 32px;
     width: 100%;
-    max-width: 380px;
+    max-width: 400px;
     position: relative;
     border: 1px solid var(--border);
     transform: translateY(-20px);
     transition: transform 0.3s;
+    margin-top: -5px;
 }
 
 .auth-modal.active .auth-container {
@@ -78,8 +85,8 @@
 
 .auth-close {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 7px;
+    right: 7px;
     width: 32px;
     height: 32px;
     border: none;
@@ -92,6 +99,7 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    z-index: 1;
 }
 
 .auth-close:hover {
@@ -132,7 +140,7 @@
 .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: -6px;
 }
 
 .auth-form.hidden {
@@ -177,9 +185,10 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .btn-full:hover {
     background: #d4b56a;
 }
+

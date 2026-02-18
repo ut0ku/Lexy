@@ -97,7 +97,7 @@ function renderPopularDecks(decks = []) {
     if (!container) return;
     
     if (decks.length === 0) {
-        container.innerHTML = '';
+        container.innerHTML = '<p style="color: var(--text-secondary);">Пока нет популярных колод</p>';
         return;
     }
     
@@ -128,7 +128,7 @@ function renderNewDecks(decks = []) {
     if (!container) return;
     
     if (decks.length === 0) {
-        container.innerHTML = '';
+        container.innerHTML = '<p style="color: var(--text-secondary);">Пока нет новых колод</p>';
         return;
     }
     

@@ -11,7 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
     
-    loadPage('library');
+    loadPage('home');
+    
+    // Устанавливаем активную кнопку навигации для home
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === 'home') {
+            btn.classList.add('active');
+        }
+    });
     
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -26,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Footer modal functionality
     initFooterModals();
+    
+    // Скрытие border-bottom navbar при скролле вниз
+    initNavbarScrollEffect();
 });
 
 // Footer modal data
@@ -62,6 +73,40 @@ function initFooterModals() {
             showFooterModal(modalId);
         }
     });
+}
+
+// Скрытие border-bottom navbar при скролле вниз
+function initNavbarScrollEffect() {
+    const navTabs = document.querySelector('.nav-tabs');
+    if (!navTabs) return;
+    
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+    
+    function updateNavBorder() {
+        const currentScrollY = window.scrollY;
+        
+        // Если скроллим вниз и прокрутили больше 10px - показываем border
+        if (currentScrollY > lastScrollY && currentScrollY > 10) {
+            navTabs.classList.remove('nav-hidden');
+        } else if (currentScrollY <= 10) {
+            // В начале страницы - скрываем border
+            navTabs.classList.add('nav-hidden');
+        }
+        
+        lastScrollY = currentScrollY;
+        ticking = false;
+    }
+    
+    // Изначально скрываем border
+    navTabs.classList.add('nav-hidden');
+    
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(updateNavBorder);
+            ticking = true;
+        }
+    }, { passive: true });
 }
 
 // Show footer modal

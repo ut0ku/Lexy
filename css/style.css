@@ -110,12 +110,35 @@ body {
     z-index: 50;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    transition: border-color 0.3s ease;
+}
+
+/* Класс для скрытия border при скролле вниз */
+.nav-tabs.nav-hidden {
+    border-bottom-color: transparent;
+}
+
+/* На мобильных скрываем border-top при скролле вниз */
+@media (max-width: 600px) {
+    .nav-tabs.nav-hidden {
+        border-bottom-color: transparent;
+        border-top-color: transparent;
+    }
 }
 
 .nav-logo {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
-    color: var(--text-primary);
+    background: linear-gradient(135deg, #ecc67e, #D4AF37, #ecc67e);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 3s ease infinite;
+    width: 60px;
+    text-align: left;
+    position: absolute;
+    left: 20px;
 }
 
 .nav-buttons {
@@ -1851,6 +1874,11 @@ input:focus, textarea:focus {
     border-radius: 16px;
     border: 1px solid var(--border);
     min-width: 0;
+    transition: transform 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: scale(1.02);
 }
 
 .feature-icon {
@@ -1868,27 +1896,27 @@ input:focus, textarea:focus {
 }
 
 .icon-smart {
-    background-image: url('../icons main/cpu-gold.svg');
+    background-image: url('../icons/cpu-gold.svg');
 }
 
 .icon-decks {
-    background-image: url('../icons main/wallet-cards-gold.svg');
+    background-image: url('../icons/wallet-cards-gold.svg');
 }
 
 .icon-star {
-    background-image: url('../icons main/star-gold.svg');
+    background-image: url('../icons/star-gold.svg');
 }
 
 .icon-stats {
-    background-image: url('../icons main/stat-gold.svg');
+    background-image: url('../icons/stat-gold.svg');
 }
 
 .icon-import {
-    background-image: url('../icons main/import-gold.svg');
+    background-image: url('../icons/import-gold.svg');
 }
 
 .icon-sync {
-    background-image: url('../icons main/sync-gold.svg');
+    background-image: url('../icons/sync-gold.svg');
 }
 
 .feature-card h3 {
