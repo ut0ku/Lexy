@@ -187,6 +187,16 @@ body {
     transform: scaleX(1);
 }
 
+.tab-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.tab-btn.disabled:hover {
+    opacity: 0.4;
+}
+
 /* Основной контейнер */
 .container {
     flex: 1;
@@ -381,7 +391,7 @@ h2 {
 .star-btn {
     background: transparent;
     border: none;
-    color: white;
+    color: var(--star-default);
     font-size: 18px;
     cursor: pointer;
     padding: 4px;
@@ -639,7 +649,7 @@ input:focus, textarea:focus {
 .favorite-btn {
     background: transparent;
     border: none;
-    color: white;
+    color: var(--star-default);
     font-size: 18px;
     cursor: pointer;
     padding: 4px;
@@ -667,7 +677,7 @@ input:focus, textarea:focus {
 .favorite-btn-large {
     background: transparent;
     border: none;
-    color: white;
+    color: var(--star-default);
     padding: 8px;
     border-radius: 8px;
     cursor: pointer;
@@ -1845,6 +1855,117 @@ input:focus, textarea:focus {
     padding: 60px 0;
 }
 
+/* Demo секция с колодами */
+.demo-section {
+    padding: 50px 0 90px;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin: 0;
+}
+
+.demo-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.demo-header h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.demo-header p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+}
+
+.demo-decks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 1050px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.demo-deck-card {
+    background: var(--bg-tertiary);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border);
+}
+
+.demo-deck-card:hover {
+    transform: translateY(-8px);
+    border-color: #ECC67E;
+    box-shadow: 0 12px 40px rgba(236, 198, 126, 0.3);
+}
+
+.demo-deck-card:hover {
+    transform: translateY(-8px);
+    border-color: #ECC67E;
+    box-shadow: 0 12px 40px rgba(236, 198, 126, 0.3);
+}
+
+.demo-deck-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.demo-deck-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.demo-deck-card p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.demo-deck-start {
+    display: inline-block;
+    padding: 10px 24px;
+    background: #ECC67E;
+    color: #1a1a1a;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.demo-deck-card:hover .demo-deck-start {
+    background: #d4b56a;
+}
+
+/* CTA кнопка */
+.btn-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    background: #ecc67e;
+    color: #1a1a1a;
+    border: none;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cta:hover {
+    background: #d4b56a;
+    transform: translateY(-2px);
+}
+
 .features-header {
     text-align: center;
     margin-bottom: 48px;
@@ -1932,7 +2053,7 @@ input:focus, textarea:focus {
 }
 
 /* Секция демо карточек */
-.demo-section {
+.demo-section-cards {
     padding: 60px 0;
     background: var(--bg-secondary);
     border-radius: 24px;

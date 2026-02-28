@@ -45,6 +45,26 @@ const ApiService = {
         return data;
     },
 
+    async getStats() {
+        const response = await fetch(`${API_URL}/auth/stats`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to get stats');
+        return data;
+    },
+
+    async updateStats(stats) {
+        const response = await fetch(`${API_URL}/auth/stats`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(stats)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to update stats');
+        return data;
+    },
+
     async changePassword(currentPassword, newPassword) {
         const response = await fetch(`${API_URL}/auth/password`, {
             method: 'PUT',
@@ -76,11 +96,11 @@ const ApiService = {
         return data;
     },
 
-    async recordActivity(cardsStudied = 1) {
+    async recordActivity(cardsStudied = 1, date = null) {
         const response = await fetch(`${API_URL}/activity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ cardsStudied })
+            body: JSON.stringify({ cardsStudied, date })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to record activity');
@@ -118,6 +138,17 @@ const ApiService = {
         return data;
     },
 
+    async updateDeck(id, name, description, custom_image) {
+        const response = await fetch(`${API_URL}/decks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ name, description, custom_image })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to update deck');
+        return data;
+    },
+
     // Cards endpoints
     async getCards(deckId) {
         const response = await fetch(`${API_URL}/decks/${deckId}/cards`, {
@@ -149,6 +180,46 @@ const ApiService = {
         return data;
     },
 
+    async toggleForgotten(cardId) {
+        const response = await fetch(`${API_URL}/cards/${cardId}/forgotten`, {
+            method: 'PUT',
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to toggle forgotten');
+        return data;
+    },
+
+    async syncUpdateCardForgotten(cardId, isForgotten) {
+        console.log('SYNC FORGOTTEN: Sending request for card', cardId, 'isForgotten:', isForgotten);
+        try {
+            const response = await fetch(`${API_URL}/cards/${cardId}/forgotten`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({ is_forgotten: isForgotten })
+            });
+            
+            console.log('SYNC FORGOTTEN: Response status:', response.status);
+            
+            if (response.ok) {
+                return await response.json();
+            }
+            
+            // If 404, card might not exist in user_cards - this is ok for cards from public decks
+            if (response.status === 404) {
+                console.log('Card not found in user_cards:', cardId);
+                return { success: true, note: 'Card not in user_cards' };
+            }
+            
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to update forgotten');
+        } catch (e) {
+            console.error('Sync forgotten error:', e);
+            // Return success to not block UI - data will be synced on next full sync
+            return { success: true, offline: true };
+        }
+    },
+
     async deleteCard(id) {
         const response = await fetch(`${API_URL}/cards/${id}`, {
             method: 'DELETE',
@@ -156,6 +227,17 @@ const ApiService = {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to delete card');
+        return data;
+    },
+
+    async updateCard(id, front, back) {
+        const response = await fetch(`${API_URL}/cards/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ front, back })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to update card');
         return data;
     },
 

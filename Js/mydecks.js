@@ -255,7 +255,7 @@ function showCreateDeckModal() {
         }
     }
     
-    document.getElementById('createDeckConfirm').addEventListener('click', () => {
+    document.getElementById('createDeckConfirm').addEventListener('click', async () => {
         const name = document.getElementById('newDeckName').value.trim();
         if (!name) return;
         
@@ -264,7 +264,7 @@ function showCreateDeckModal() {
         // Если выбран файл, импортируем его
         if (selectedFile) {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 try {
                     const importedDeck = JSON.parse(e.target.result);
                     const newDeck = {
@@ -275,6 +275,30 @@ function showCreateDeckModal() {
                         isFavorite: false,
                         customImage: selectedImage
                     };
+                    
+                    // Sync with server if user is registered
+                    if (AppState.user && AppState.user.isRegistered) {
+                        try {
+                            const result = await ApiService.createDeck(name, '');
+                            newDeck.id = result.deck.id;
+                            
+                            // Add cards to server
+                            for (const card of newDeck.cards) {
+                                try {
+                                    const cardResult = await ApiService.createCard(newDeck.id, card.word || card.front, card.translation || card.back);
+                                    card.id = cardResult.card.id;
+                                } catch (e) {
+                                    console.error('Failed to sync card to server:', e);
+                                }
+                            }
+                            
+                            if (selectedImage) {
+                                await ApiService.updateDeck(newDeck.id, name, '', selectedImage);
+                            }
+                        } catch (e) {
+                            console.error('Failed to sync deck to server:', e);
+                        }
+                    }
                     
                     AppState.userDecks.push(newDeck);
                     saveState();
@@ -297,6 +321,20 @@ function showCreateDeckModal() {
                 isFavorite: false,
                 customImage: selectedImage
             };
+            
+            // Send to server
+            if (AppState.user && AppState.user.isRegistered) {
+                try {
+                    const result = await ApiService.createDeck(name, '');
+                    newDeck.id = result.deck.id;
+                    // Update custom image
+                    if (selectedImage) {
+                        await ApiService.updateDeck(newDeck.id, name, '', selectedImage);
+                    }
+                } catch (e) {
+                    console.error('Failed to create deck on server:', e);
+                }
+            }
             
             AppState.userDecks.push(newDeck);
             saveState();
@@ -323,7 +361,9 @@ function openDeck(deckId) {
 function getUserDeck(deckId) {
     if (deckId === 'favorite') return AppState.favoriteDeck;
     if (deckId === 'forgotten') return AppState.forgottenDeck;
-    return AppState.userDecks.find(d => d.id === deckId);
+    // Handle both string and number comparison
+    const numericDeckId = Number(deckId);
+    return AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
 }
 
 function showStudyTypeSelection(deckId) {
@@ -341,8 +381,12 @@ function showStudyTypeSelection(deckId) {
 }
 
 function showDeckMenu(deckId) {
-    const deck = AppState.userDecks.find(d => d.id === deckId);
-    if (!deck) return;
+    const numericDeckId = Number(deckId);
+    const deck = AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
+    if (!deck) {
+        console.log('Deck not found:', deckId, AppState.userDecks);
+        return;
+    }
     
     const modal = showModal({
         title: deck.name,
@@ -408,7 +452,7 @@ function showAddCardModal(deckId) {
         `
     });
     
-    document.getElementById('addCardConfirm').addEventListener('click', () => {
+    document.getElementById('addCardConfirm').addEventListener('click', async () => {
         const word = document.getElementById('newWord').value.trim();
         const translation = document.getElementById('newTranslation').value.trim();
         
@@ -417,6 +461,8 @@ function showAddCardModal(deckId) {
         AppState.cardCreateTimes.push(Date.now());
         
         const deck = getUserDeck(deckId);
+        console.log('Creating card in deck:', deckId, 'deck.id:', deck?.id, 'type:', typeof deck?.id);
+        
         if (deck) {
             const newCard = {
                 id: 'card_' + Date.now() + Math.random(),
@@ -429,6 +475,18 @@ function showAddCardModal(deckId) {
             };
             
             deck.cards.push(newCard);
+            
+            // Send to server if deck has server ID (numeric)
+            if (AppState.user && AppState.user.isRegistered && typeof deck.id === 'number') {
+                try {
+                    const result = await ApiService.createCard(deck.id, word, translation);
+                    // Update card ID with server ID
+                    newCard.id = result.card.id;
+                } catch (e) {
+                    console.error('Failed to create card on server:', e);
+                }
+            }
+            
             saveState();
             
             modal.classList.remove('active');
@@ -450,7 +508,8 @@ function startStudy(deckId, mode) {
         cards: [...deck.cards],
         currentIndex: 0,
         results: [],
-        startTime: Date.now()
+        startTime: Date.now(),
+        cardsStudied: 0
     };
     
     showStudySession();
@@ -543,6 +602,12 @@ function showStudySession() {
             const endPos = direction === 'right' ? 300 : -300;
             const startTime = performance.now();
             const duration = 450;
+            
+            // Добавляем цветную обводку
+            studyCard.style.borderColor = direction === 'right' ? 'var(--success)' : 'var(--danger)';
+            studyCard.style.boxShadow = direction === 'right' 
+                ? '-10px 0 30px rgba(52, 199, 89, 0.5)' 
+                : '10px 0 30px rgba(255, 59, 48, 0.5)';
             
             studyCard.style.transition = 'none';
             
@@ -728,53 +793,136 @@ function showStudySession() {
 function handleStudyResult(knew, correctAnswer) {
     const study = AppState.currentStudy;
     const currentCard = study.cards[study.currentIndex];
+    const isForgottenDeck = study.deckId === 'forgotten';
+    
+    // Увеличиваем счётчик изученных карточек
+    study.cardsStudied = (study.cardsStudied || 0) + 1;
     
     if (knew) {
+        console.log('User clicked Know');
         currentCard.repetitions++;
         currentCard.interval = Math.min(currentCard.interval * 2, 365);
         
-        study.cards.splice(study.currentIndex, 1);
-        if (Math.random() > 0.3) {
-            study.cards.push(currentCard);
+        // Если изучаем колоду "Забытые" и нажали "Знаю" - удаляем из забытых
+        if (isForgottenDeck) {
+            AppState.forgottenDeck.cards = AppState.forgottenDeck.cards.filter(c => c.id !== currentCard.id);
+            
+            // Синхронизация с сервером - переключаем флаг is_forgotten
+            if (currentCard.id) {
+                ApiService.syncUpdateCardForgotten(currentCard.id, false).catch(err => console.error('Sync forgotten error:', err));
+            }
+            
+            saveState();
         }
         
+        // Удаляем карточку
+        study.cards.splice(study.currentIndex, 1);
+        console.log('After splice, cards:', study.cards.length);
+        
         AppState.user.learnedWords++;
+        saveState();
     } else {
         currentCard.repetitions = 0;
         currentCard.interval = 1;
         
-        if (!AppState.forgottenDeck.cards.some(c => c.id === currentCard.id)) {
-            AppState.forgottenDeck.cards.push({...currentCard});
+        // Если изучаем НЕ колоду "Забытые" и нажали "Не знаю" - добавляем в забытые
+        if (!isForgottenDeck) {
+            const cardId = currentCard.id;
+            const alreadyInForgotten = AppState.forgottenDeck.cards.some(c => c.id === cardId || c.id === Number(cardId));
+            if (!alreadyInForgotten) {
+                AppState.forgottenDeck.cards.push({...currentCard});
+                
+                // Синхронизация с сервером - переключаем флаг is_forgotten
+                if (cardId) {
+                    ApiService.syncUpdateCardForgotten(cardId, true).catch(err => console.error('Sync forgotten error:', err));
+                }
+                
+                console.log('Added to forgotten deck:', currentCard.id);
+                saveState();
+            }
         }
         
-        showNotification(`Правильно: ${correctAnswer}`, 'info');
+        // Возвращаем в конец очереди ТОЛЬКО ОДИН раз
+        const cardId = currentCard.id;
+        const alreadyInQueue = study.cards.some(c => c.id === cardId || c.id === Number(cardId));
+        if (!alreadyInQueue) {
+            study.cards.push(currentCard);
+        }
+        study.currentIndex++;
         
-        study.currentIndex++;
+        showNotification(`Правильно: ${correctAnswer}`, 'info');
     }
     
-    if (!knew) {
-        study.currentIndex++;
-    }
+    console.log('Before check - cards.length:', study.cards.length, 'currentIndex:', study.currentIndex);
     
-    if (study.currentIndex >= study.cards.length) {
-        // Показываем сообщение о завершении вместо автоматического закрытия
+    // Если карточек не осталось, показываем модалку завершения
+    if (study.cards.length === 0) {
         showCompletionModal();
-    } else {
-        document.querySelector('.modal-overlay')?.classList.remove('active');
-        showStudySession();
+        return;
     }
+    
+    // Если индекс вышел за пределы, сбрасываем
+    if (study.currentIndex >= study.cards.length) {
+        study.currentIndex = 0;
+    }
+    
+    document.querySelector('.modal-overlay')?.classList.remove('active');
+    showStudySession();
 }
 
 function showCompletionModal() {
+    console.log('showCompletionModal called');
+    
     // Сохраняем время занятий
     const study = AppState.currentStudy;
+    console.log('study:', study);
+    console.log('cards:', study ? study.cards : 'none');
+    
     if (study && study.startTime) {
         const sessionTime = Math.floor((Date.now() - study.startTime) / 1000); // в секундах
         AppState.user.studyTime += sessionTime;
     }
     
+    // Подсчитываем сколько карточек изучено
+    const cardsStudied = study ? study.cardsStudied || 0 : 0;
+    console.log('cardsStudied:', cardsStudied);
+    
     updateStreak();
+    
+    // Обновляем accuracy
+    if (AppState.user.learnedWords > 0) {
+        AppState.user.accuracy = Math.min(95, 70 + Math.floor(AppState.user.streak * 0.5));
+    } else {
+        AppState.user.accuracy = 0;
+    }
+    
     saveState();
+    saveStatsToServer();
+    
+    // Записываем активность - день стал активным
+    if (cardsStudied > 0) {
+        // Инициализируем activity если её нет
+        if (!AppState.user.activity) {
+            AppState.user.activity = {};
+        }
+        
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        
+        AppState.user.activity[todayStr] = true;
+        saveState();
+        
+        // Записываем в БД
+        if (typeof ApiService !== 'undefined') {
+            ApiService.recordActivity(cardsStudied, todayStr)
+                .catch(err => console.error('Failed to record activity:', err));
+        }
+    }
+    
+    console.log('Showing modal...');
     
     const modal = showModal({
         title: 'Поздравляем!',
@@ -806,7 +954,8 @@ function showCompletionModal() {
 }
 
 function toggleFavorite(deckId) {
-    const deck = AppState.userDecks.find(d => d.id === deckId);
+    const numericDeckId = Number(deckId);
+    const deck = AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
     if (deck) {
         deck.isFavorite = !deck.isFavorite;
         
@@ -814,12 +963,32 @@ function toggleFavorite(deckId) {
             deck.cards.forEach(card => {
                 if (!AppState.favoriteDeck.cards.some(c => c.id === card.id)) {
                     AppState.favoriteDeck.cards.push({...card});
+                    
+                    // Sync with server if card has numeric ID
+                    if (AppState.user && AppState.user.isRegistered && typeof card.id === 'number') {
+                        try {
+                            ApiService.toggleFavorite(card.id);
+                        } catch (e) {
+                            console.error('Failed to sync favorite to server:', e);
+                        }
+                    }
                 }
             });
         } else {
             AppState.favoriteDeck.cards = AppState.favoriteDeck.cards.filter(
                 c => !deck.cards.some(dc => dc.id === c.id)
             );
+            
+            // Sync with server - toggle off for all cards
+            deck.cards.forEach(card => {
+                if (AppState.user && AppState.user.isRegistered && typeof card.id === 'number') {
+                    try {
+                        ApiService.toggleFavorite(card.id);
+                    } catch (e) {
+                        console.error('Failed to sync favorite to server:', e);
+                    }
+                }
+            });
         }
         
         saveState();
@@ -830,7 +999,16 @@ function toggleFavorite(deckId) {
 }
 
 function isCardFavorite(cardId) {
-    return AppState.favoriteDeck.cards.some(c => c.id === cardId);
+    // Check both in favoriteDeck and card's is_favorite property
+    const inFavorites = AppState.favoriteDeck.cards.some(c => c.id == cardId || c.id === Number(cardId));
+    
+    // Also check in user decks
+    for (const deck of AppState.userDecks) {
+        const card = deck.cards?.find(c => c.id == cardId || c.id === Number(cardId));
+        if (card && card.is_favorite === true) return true;
+    }
+    
+    return inFavorites;
 }
 
 function toggleCardFavorite(deckId, cardId) {
@@ -854,6 +1032,15 @@ function toggleCardFavorite(deckId, cardId) {
     
     saveState();
     
+    // Sync with server if card has numeric ID
+    if (AppState.user && AppState.user.isRegistered && typeof card.id === 'number') {
+        try {
+            ApiService.toggleFavorite(card.id);
+        } catch (e) {
+            console.error('Failed to sync favorite to server:', e);
+        }
+    }
+    
     // Обновляем отображение карточек
     viewCards(deckId);
 }
@@ -862,7 +1049,7 @@ function toggleFavoriteFromStudy(deckId, cardId) {
     const deck = getUserDeck(deckId);
     if (!deck) return;
     
-    const card = deck.cards.find(c => c.id === cardId);
+    const card = deck.cards.find(c => c.id == cardId);
     if (!card) return;
     
     const isFavorite = isCardFavorite(cardId);
@@ -878,6 +1065,15 @@ function toggleFavoriteFromStudy(deckId, cardId) {
     saveState();
     updatePermanentDecks();
     
+    // Sync with server if card has numeric ID
+    if (AppState.user && AppState.user.isRegistered && typeof card.id === 'number') {
+        try {
+            ApiService.toggleFavorite(card.id);
+        } catch (e) {
+            console.error('Failed to sync favorite to server:', e);
+        }
+    }
+    
     // Обновляем кнопку в study-режиме
     const favBtn = document.getElementById('studyFavBtn');
     if (favBtn) {
@@ -891,7 +1087,22 @@ function toggleFavoriteFromStudy(deckId, cardId) {
 
 function deleteDeck(deckId) {
     if (confirm('Удалить эту колоду?')) {
-        AppState.userDecks = AppState.userDecks.filter(d => d.id !== deckId);
+        // Convert deckId to number for proper comparison (since IDs from server are numbers)
+        const numericDeckId = Number(deckId);
+        const deck = AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
+        
+        // Delete from server - use deck.id (server ID)
+        if (AppState.user && AppState.user.isRegistered && deck) {
+            try {
+                const serverId = typeof deck.id === 'number' ? deck.id : numericDeckId;
+                ApiService.deleteDeck(serverId);
+            } catch (e) {
+                console.error('Failed to delete deck on server:', e);
+            }
+        }
+        
+        // Filter using both string and number comparison
+        AppState.userDecks = AppState.userDecks.filter(d => d.id != deckId && d.id != numericDeckId);
         saveState();
         document.querySelector('.modal-overlay')?.classList.remove('active');
         renderUserDecks();
@@ -900,7 +1111,8 @@ function deleteDeck(deckId) {
 }
 
 function exportDeck(deckId) {
-    const deck = AppState.userDecks.find(d => d.id === deckId);
+    const numericDeckId = Number(deckId);
+    const deck = AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
     if (!deck) return;
     
     const dataStr = JSON.stringify(deck, null, 2);
@@ -913,7 +1125,8 @@ function exportDeck(deckId) {
 }
 
 function editDeckName(deckId) {
-    const deck = AppState.userDecks.find(d => d.id === deckId);
+    const numericDeckId = Number(deckId);
+    const deck = AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
     if (!deck) return;
     
     const modal = showModal({
@@ -926,10 +1139,20 @@ function editDeckName(deckId) {
         `
     });
     
-    document.getElementById('saveDeckName').addEventListener('click', () => {
+    document.getElementById('saveDeckName').addEventListener('click', async () => {
         const newName = document.getElementById('newDeckName').value.trim();
         if (newName) {
             deck.name = newName;
+            
+            // Send to server only if deck has numeric server ID
+            if (AppState.user && AppState.user.isRegistered && typeof deck.id === 'number') {
+                try {
+                    await ApiService.updateDeck(deck.id, deck.name, deck.description || '', deck.customImage || null);
+                } catch (e) {
+                    console.error('Failed to update deck on server:', e);
+                }
+            }
+            
             saveState();
             modal.classList.remove('active');
             renderUserDecks();
@@ -939,7 +1162,8 @@ function editDeckName(deckId) {
 }
 
 function changeDeckImage(deckId) {
-    const deck = AppState.userDecks.find(d => d.id === deckId);
+    const numericDeckId = Number(deckId);
+    const deck = AppState.userDecks.find(d => d.id == deckId || d.id === numericDeckId);
     if (!deck) return;
     
     const modal = showModal({
@@ -1008,8 +1232,18 @@ function changeDeckImage(deckId) {
         }
     }
     
-    document.getElementById('saveDeckImage').addEventListener('click', () => {
+    document.getElementById('saveDeckImage').addEventListener('click', async () => {
         deck.customImage = selectedImage;
+        
+        // Send to server only if deck has numeric server ID
+        if (AppState.user && AppState.user.isRegistered && typeof deck.id === 'number') {
+            try {
+                await ApiService.updateDeck(deck.id, deck.name, deck.description || '', deck.customImage || null);
+            } catch (e) {
+                console.error('Failed to update deck on server:', e);
+            }
+        }
+        
         saveState();
         modal.classList.remove('active');
         renderUserDecks();
@@ -1020,8 +1254,20 @@ function changeDeckImage(deckId) {
 function deleteCard(deckId, cardId) {
     if (confirm('Удалить эту карточку?')) {
         const deck = getUserDeck(deckId);
+        const card = deck?.cards.find(c => c.id == cardId);
+        
         if (deck) {
-            deck.cards = deck.cards.filter(c => c.id !== cardId);
+            deck.cards = deck.cards.filter(c => c.id != cardId);
+            
+            // Delete from server only if card has numeric server ID
+            if (AppState.user && AppState.user.isRegistered && card && typeof card.id === 'number') {
+                try {
+                    ApiService.deleteCard(card.id);
+                } catch (e) {
+                    console.error('Failed to delete card on server:', e);
+                }
+            }
+            
             saveState();
             viewCards(deckId);
         }
@@ -1030,7 +1276,7 @@ function deleteCard(deckId, cardId) {
 
 function editCard(deckId, cardId) {
     const deck = getUserDeck(deckId);
-    const card = deck?.cards.find(c => c.id === cardId);
+    const card = deck?.cards.find(c => c.id == cardId);
     if (!card) return;
     
     const modal = showModal({
@@ -1048,13 +1294,23 @@ function editCard(deckId, cardId) {
         `
     });
     
-    document.getElementById('saveCard').addEventListener('click', () => {
+    document.getElementById('saveCard').addEventListener('click', async () => {
         const newWord = document.getElementById('editWord').value.trim();
         const newTranslation = document.getElementById('editTranslation').value.trim();
         
         if (newWord && newTranslation) {
             card.word = newWord;
             card.translation = newTranslation;
+            
+            // Send to server only if card has numeric server ID
+            if (AppState.user && AppState.user.isRegistered && typeof card.id === 'number') {
+                try {
+                    await ApiService.updateCard(card.id, newWord, newTranslation);
+                } catch (e) {
+                    console.error('Failed to update card on server:', e);
+                }
+            }
+            
             saveState();
             modal.classList.remove('active');
             viewCards(deckId);

@@ -11,6 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
     
+    // Проверяем авторизацию и обновляем доступность вкладок
+    if (typeof updateAuthButton === 'function') {
+        updateAuthButton();
+    }
+    
     loadPage('home');
     
     // Устанавливаем активную кнопку навигации для home
@@ -23,10 +28,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const tab = e.target.dataset.tab;
+            const target = e.currentTarget;
+            const tab = target.dataset.tab;
+            
+            // Проверяем, если вкладка неактивна (для неавторизованного пользователя)
+            if (target.classList.contains('disabled')) {
+                // Открываем окно авторизации
+                const authModal = document.getElementById('authModal');
+                if (authModal) {
+                    authModal.classList.add('active');
+                }
+                return;
+            }
             
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
+            target.classList.add('active');
             
             await loadPage(tab);
         });

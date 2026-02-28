@@ -1,10 +1,57 @@
 function initStatsPage() {
+    loadStatsFromServer();
     updateStatsDisplay();
     renderActivityCalendar();
 }
 
+async function loadStatsFromServer() {
+    try {
+        const stats = await ApiService.getStats();
+        // Update AppState with server data
+        AppState.user.streak = stats.streak || 0;
+        AppState.user.learnedWords = stats.learned_words || 0;
+        AppState.user.studyTime = stats.study_time || 0;
+        AppState.user.accuracy = stats.accuracy || 0;
+        AppState.user.lastStudyDate = stats.last_study_date;
+        
+        // Загружаем активность с сервера
+        try {
+            const activityData = await ApiService.getActivity();
+            // Всегда устанавливаем активность (может быть пустым объектом)
+            if (activityData && activityData.activity) {
+                // Сливаем серверную активность с локальной (локальная имеет приоритет)
+                AppState.user.activity = { ...activityData.activity, ...AppState.user.activity };
+            }
+        } catch (e) {
+            console.error('Failed to load activity:', e);
+        }
+        
+        // Update local display
+        updateStatsDisplay();
+        renderActivityCalendar();
+    } catch (error) {
+        console.error('Failed to load stats from server:', error);
+        // Fall back to local data
+        updateStatsDisplay();
+    }
+}
+
+async function saveStatsToServer() {
+    try {
+        await ApiService.updateStats({
+            streak: AppState.user.streak,
+            learned_words: AppState.user.learnedWords,
+            study_time: AppState.user.studyTime,
+            accuracy: AppState.user.accuracy,
+            last_study_date: AppState.user.lastStudyDate
+        });
+    } catch (error) {
+        console.error('Failed to save stats to server:', error);
+    }
+}
+
 function updateStatsDisplay() {
-    const streak = AppState.user.streak;
+    const streak = AppState.user.streak || 0;
     document.getElementById('streakDisplay').textContent = streak;
     
     let streakText = 'дней подряд';
@@ -12,14 +59,14 @@ function updateStatsDisplay() {
     else if (streak % 10 >= 2 && streak % 10 <= 4 && (streak % 100 < 10 || streak % 100 >= 20)) streakText = 'дня подряд';
     document.getElementById('streakLabel').textContent = streakText;
     
-    document.getElementById('learnedWordsStat').textContent = AppState.user.learnedWords;
+    document.getElementById('learnedWordsStat').textContent = AppState.user.learnedWords || 0;
     
     // Используем реальное время занятий (в минутах)
-    const studyTime = Math.floor(AppState.user.studyTime / 60);
+    const studyTime = AppState.user.studyTime ? Math.floor(AppState.user.studyTime / 60) : 0;
     document.getElementById('studyTimeStat').textContent = studyTime;
     
-    const accuracy = AppState.user.learnedWords > 0 ? 
-        Math.min(95, 70 + Math.floor(AppState.user.streak * 0.5)) : 0;
+    const accuracy = (AppState.user.learnedWords || 0) > 0 ? 
+        Math.min(95, 70 + Math.floor(streak * 0.5)) : 0;
     document.getElementById('accuracyStat').textContent = accuracy + '%';
 }
 
@@ -90,7 +137,8 @@ function renderActivityCalendar() {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             const dateStr = year + '-' + month + '-' + day;
-            const isActive = activity && activity[dateStr];
+            // Проверяем: если значение существует и больше 0 - день активный
+            const isActive = activity && activity[dateStr] && activity[dateStr] > 0;
             
             daySquares.push('<div class="day-square' + (isActive ? ' active' : '') + '" title="' + dateStr + '"></div>');
         }

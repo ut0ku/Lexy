@@ -155,10 +155,11 @@ function renderNewDecks(decks = []) {
 }
 
 async function addPublicDeck(deckId) {
-    const deck = publicDecksData.find(d => d.id == deckId);
+    const numericDeckId = Number(deckId);
+    const deck = publicDecksData.find(d => d.id == deckId || d.id === numericDeckId);
     if (!deck) {
         // Try static decks
-        const staticDeck = AppState.publicDecks.find(d => d.id === deckId);
+        const staticDeck = AppState.publicDecks.find(d => d.id == deckId || d.id === numericDeckId);
         if (!staticDeck) return;
         
         // Check if already added
@@ -186,6 +187,17 @@ async function addPublicDeck(deckId) {
         };
         
         AppState.userDecks.push(newDeck);
+        
+        // Sync with server immediately if user is registered
+        if (AppState.user && AppState.user.isRegistered) {
+            try {
+                const result = await ApiService.createDeck(newDeck.name, '');
+                newDeck.id = result.deck.id;
+            } catch (e) {
+                console.error('Failed to sync deck to server:', e);
+            }
+        }
+        
         saveState();
         
         showNotification('Колода добавлена в Мои колоды');
@@ -236,6 +248,31 @@ async function addPublicDeck(deckId) {
     };
     
     AppState.userDecks.push(newDeck);
+    
+    // Sync with server immediately if user is registered
+    if (AppState.user && AppState.user.isRegistered) {
+        try {
+            // Create deck on server
+            const result = await ApiService.createDeck(newDeck.name, '');
+            const serverDeckId = result.deck.id;
+            
+            // Update deck with server ID
+            newDeck.id = serverDeckId;
+            
+            // Add cards to deck on server
+            for (const card of cards) {
+                try {
+                    const cardResult = await ApiService.createCard(serverDeckId, card.word, card.translation);
+                    card.id = cardResult.card.id;
+                } catch (e) {
+                    console.error('Failed to sync card to server:', e);
+                }
+            }
+        } catch (e) {
+            console.error('Failed to sync deck to server:', e);
+        }
+    }
+    
     saveState();
     
     showNotification(`Колода добавлена в Мои колоды с ${cards.length} картами`);

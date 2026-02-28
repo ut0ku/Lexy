@@ -9,7 +9,8 @@ const AppState = {
         lastStudyDate: null,
         learnedWords: 0,
         studyTime: 0,
-        activity: {}
+        activity: {},
+        isRegistered: false
     },
     
     favoriteDeck: { 
@@ -55,6 +56,130 @@ function loadState() {
     }
     
     applyTheme(AppState.user.theme);
+    
+    // Если пользователь уже вошёл (есть токен), загружаем данные с сервера
+    const token = localStorage.getItem('lexy_token');
+    if (token && typeof ApiService !== 'undefined') {
+        // Сохраняем текущую тему перед загрузкой с сервера
+        const currentTheme = AppState.user.theme || 'dark';
+        
+        // Устанавливаем isRegistered = true так как у пользователя есть токен
+        AppState.user.isRegistered = true;
+        loadUserDataFromServer().then(() => {
+            // Восстанавливаем тему после загрузки с сервера
+            AppState.user.theme = currentTheme;
+            // Пересохраняем состояние с правильной темой
+            saveState();
+            // Применяем тему
+            applyTheme(AppState.user.theme);
+        });
+    }
+}
+
+// Загрузка данных пользователя с сервера
+async function loadUserDataFromServer() {
+    try {
+        // Загружаем статистику
+        const stats = await ApiService.getStats();
+        AppState.user.streak = stats.streak || 0;
+        AppState.user.learnedWords = stats.learned_words || 0;
+        AppState.user.studyTime = stats.study_time || 0;
+        AppState.user.accuracy = stats.accuracy || 0;
+        // Преобразуем дату в формат YYYY-MM-DD
+        if (stats.last_study_date) {
+            const d = new Date(stats.last_study_date);
+            AppState.user.lastStudyDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        } else {
+            AppState.user.lastStudyDate = null;
+        }
+        
+        // Загружаем активность
+        const activityData = await ApiService.getActivity();
+        if (activityData && activityData.activity) {
+            AppState.user.activity = activityData.activity;
+        }
+        
+        // Синхронизируем колоды с сервера
+        try {
+            const serverData = await ApiService.syncGet();
+            if (serverData && serverData.decks) {
+                const serverCards = serverData.cards || [];
+                
+                // Build favorite deck from server data
+                const favoriteCards = serverCards
+                    .filter(card => card.is_favorite === true || card.is_favorite === 'true')
+                    .map(card => ({
+                        id: card.id,
+                        word: card.front,
+                        translation: card.back,
+                        is_favorite: true,
+                        repetitions: card.repetitions || 0,
+                        interval: card.interval || 1,
+                        ease: card.ease || 2.5,
+                        nextReview: card.next_review
+                    }));
+                
+                // Build forgotten deck from server data
+                const forgottenCards = serverCards
+                    .filter(card => card.is_forgotten === true || card.is_forgotten === 'true')
+                    .map(card => ({
+                        id: card.id,
+                        word: card.front,
+                        translation: card.back,
+                        is_forgotten: true,
+                        repetitions: card.repetitions || 0,
+                        interval: card.interval || 1,
+                        ease: card.ease || 2.5,
+                        nextReview: card.next_review
+                    }));
+                
+                AppState.favoriteDeck = {
+                    id: 'favorite',
+                    name: 'Избранное',
+                    cards: favoriteCards,
+                    isFavorite: true
+                };
+                
+                AppState.forgottenDeck = {
+                    id: 'forgotten',
+                    name: 'Забытые карты',
+                    cards: forgottenCards,
+                    isForgotten: true
+                };
+                
+                AppState.userDecks = serverData.decks.map(deck => {
+                    const deckCards = serverCards
+                        .filter(card => card.deck_id === deck.id)
+                        .map(card => ({
+                            id: card.id,
+                            word: card.front,
+                            translation: card.back,
+                            is_favorite: card.is_favorite,
+                            repetitions: card.repetitions || 0,
+                            interval: card.interval || 1,
+                            ease: card.ease || 2.5,
+                            nextReview: card.next_review
+                        }));
+                    
+                    return {
+                        ...deck,
+                        id: deck.id,
+                        customImage: deck.custom_image || null,
+                        source: deck.source || 'created',
+                        publicDeckId: deck.public_deck_id || null,
+                        cards: deckCards
+                    };
+                });
+            }
+        } catch (syncError) {
+            console.error('Failed to sync decks:', syncError);
+        }
+        
+        // Сохраняем обновлённые данные
+        saveState();
+    } catch (e) {
+        console.error('Failed to load user data from server:', e);
+    }
 }
 
 // Сохранение
@@ -89,21 +214,54 @@ function canCreateCard() {
 
 // Обновление streak
 function updateStreak() {
-    const today = new Date().toISOString().split('T')[0];
+    // Используем локальную дату
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
     
-    if (AppState.user.lastStudyDate !== today) {
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        
-        if (AppState.user.lastStudyDate === yesterday) {
-            AppState.user.streak += 1;
-        } else {
-            AppState.user.streak = 1;
-        }
-        
-        AppState.user.lastStudyDate = today;
-        AppState.user.activity[today] = true;
-        saveState();
+    // Вычисляем вчера
+    const yesterday = new Date(Date.now() - 86400000);
+    const yYear = yesterday.getFullYear();
+    const yMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const yDay = String(yesterday.getDate()).padStart(2, '0');
+    const yesterdayStr = `${yYear}-${yMonth}-${yDay}`;
+    
+    // Проверяем активность за вчера и сегодня
+    const activity = AppState.user.activity || {};
+    const hadActivityYesterday = activity[yesterdayStr] && activity[yesterdayStr] > 0;
+    const hadActivityToday = activity[todayStr] && activity[todayStr] > 0;
+    
+    if (hadActivityYesterday && !hadActivityToday) {
+        // Если была активность вчера и сегодня ещё не было - увеличиваем streak
+        AppState.user.streak += 1;
+    } else if (!hadActivityYesterday && !hadActivityToday) {
+        // Если не было активности ни вчера, ни сегодня - начинаем с 1
+        AppState.user.streak = 1;
     }
+    // Если уже была активность сегодня - не меняем streak
+    
+    // Обновляем дату
+    AppState.user.lastStudyDate = todayStr;
+    
+    // Сохраняем на сервере
+    if (typeof ApiService !== 'undefined') {
+        ApiService.updateStats({
+            streak: AppState.user.streak,
+            learned_words: AppState.user.learnedWords,
+            study_time: AppState.user.studyTime,
+            accuracy: AppState.user.accuracy,
+            last_study_date: todayStr
+        }).catch(err => console.error('Failed to save streak:', err));
+    }
+    
+    // Записываем активность - день стал активным
+    if (!AppState.user.activity) {
+        AppState.user.activity = {};
+    }
+    AppState.user.activity[todayStr] = true;
+    saveState();
 }
 
 // Инициализация

@@ -46,9 +46,25 @@ async function initDatabase() {
                 password VARCHAR(255) NOT NULL,
                 role VARCHAR(20) DEFAULT 'user',
                 avatar VARCHAR(10) DEFAULT '👤',
+                streak INTEGER DEFAULT 0,
+                learned_words INTEGER DEFAULT 0,
+                study_time INTEGER DEFAULT 0,
+                accuracy INTEGER DEFAULT 0,
+                last_study_date DATE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Migration: Add stats columns if they don't exist
+        try {
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS streak INTEGER DEFAULT 0`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS learned_words INTEGER DEFAULT 0`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS study_time INTEGER DEFAULT 0`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS accuracy INTEGER DEFAULT 0`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_study_date DATE`);
+        } catch (e) {
+            // Columns might already exist
+        }
 
         // Create user_activity table
         await pool.query(`
@@ -68,9 +84,39 @@ async function initDatabase() {
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 name VARCHAR(100) NOT NULL,
                 description TEXT,
+                custom_image TEXT,
+                source TEXT DEFAULT 'created',
+                public_deck_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Add custom_image column if not exists (for existing databases)
+        try {
+            await pool.query(`
+                ALTER TABLE user_decks ADD COLUMN IF NOT EXISTS custom_image TEXT
+            `);
+        } catch (e) {
+            // Column might already exist
+        }
+        
+        // Add source column if not exists
+        try {
+            await pool.query(`
+                ALTER TABLE user_decks ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'created'
+            `);
+        } catch (e) {
+            // Column might already exist
+        }
+        
+        // Add public_deck_id column if not exists
+        try {
+            await pool.query(`
+                ALTER TABLE user_decks ADD COLUMN IF NOT EXISTS public_deck_id INTEGER
+            `);
+        } catch (e) {
+            // Column might already exist
+        }
 
         // Create user_cards table
         await pool.query(`
@@ -80,9 +126,37 @@ async function initDatabase() {
                 front TEXT NOT NULL,
                 back TEXT NOT NULL,
                 is_favorite BOOLEAN DEFAULT FALSE,
+                is_forgotten BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        
+        // Add is_forgotten column if it doesn't exist (for existing databases)
+        try {
+            await pool.query(`
+                ALTER TABLE user_cards ADD COLUMN IF NOT EXISTS is_forgotten BOOLEAN DEFAULT FALSE
+            `);
+        } catch (e) {
+            // Column might already exist
+        }
+        
+        // Fix is_forgotten column type if it's not boolean
+        try {
+            await pool.query(`
+                ALTER TABLE user_cards ALTER COLUMN is_forgotten TYPE BOOLEAN USING (is_forgotten::boolean)
+            `);
+        } catch (e) {
+            // Type might already be correct
+        }
+        
+        // Fix is_favorite column type if it's not boolean
+        try {
+            await pool.query(`
+                ALTER TABLE user_cards ALTER COLUMN is_favorite TYPE BOOLEAN USING (is_favorite::boolean)
+            `);
+        } catch (e) {
+            // Type might already be correct
+        }
 
         // Create public_decks table (for library)
         await pool.query(`
@@ -278,7 +352,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, name, username, role, avatar, created_at FROM users WHERE id = $1',
+            'SELECT id, name, username, role, avatar, streak, learned_words, study_time, accuracy, last_study_date, created_at FROM users WHERE id = $1',
             [req.user.id]
         );
 
@@ -306,6 +380,49 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
         res.json({ user: result.rows[0] });
     } catch (error) {
         console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Update stats
+app.put('/api/auth/stats', authenticateToken, async (req, res) => {
+    try {
+        const { streak, learned_words, study_time, accuracy, last_study_date } = req.body;
+
+        const result = await pool.query(
+            `UPDATE users SET 
+                streak = $1, 
+                learned_words = $2, 
+                study_time = $3,
+                accuracy = $4,
+                last_study_date = $5
+            WHERE id = $6 
+            RETURNING id, name, username, role, avatar, streak, learned_words, study_time, accuracy, last_study_date`,
+            [streak, learned_words, study_time, accuracy, last_study_date, req.user.id]
+        );
+
+        res.json({ user: result.rows[0] });
+    } catch (error) {
+        console.error('Update stats error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Get stats
+app.get('/api/auth/stats', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT streak, learned_words, study_time, accuracy, last_study_date FROM users WHERE id = $1',
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Get stats error:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
@@ -368,7 +485,13 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
 
         const activity = {};
         result.rows.forEach(row => {
-            activity[row.date] = row.cards_studied;
+            // Явно преобразуем дату в строку YYYY-MM-DD
+            const d = new Date(row.date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+            activity[dateStr] = row.cards_studied;
         });
 
         res.json({ activity });
@@ -382,7 +505,10 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
 app.post('/api/activity', authenticateToken, async (req, res) => {
     try {
         const { cardsStudied = 1 } = req.body;
-        const today = new Date().toISOString().split('T')[0];
+        
+        // Используем локальное время пользователя (отправленное с клиента) или текущее локальное время сервера
+        const clientDate = req.body.date;
+        const today = clientDate || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split('T')[0]; // Moscow time (UTC+3)
 
         await pool.query(
             `INSERT INTO user_activity (user_id, date, cards_studied) 
@@ -449,8 +575,8 @@ app.put('/api/sync', authenticateToken, async (req, res) => {
             if (decks && Array.isArray(decks)) {
                 for (const deck of decks) {
                     const deckResult = await client.query(
-                        'INSERT INTO user_decks (user_id, name, description) VALUES ($1, $2, $3) RETURNING id',
-                        [req.user.id, deck.name, deck.description || '']
+                        'INSERT INTO user_decks (user_id, name, description, custom_image, source, public_deck_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+                        [req.user.id, deck.name, deck.description || '', deck.customImage || null, deck.source || 'created', deck.publicDeckId || null]
                     );
                     const newDeckId = deckResult.rows[0].id;
                     
@@ -458,8 +584,8 @@ app.put('/api/sync', authenticateToken, async (req, res) => {
                     if (deck.cards && Array.isArray(deck.cards)) {
                         for (const card of deck.cards) {
                             await client.query(
-                                'INSERT INTO user_cards (deck_id, front, back, is_favorite) VALUES ($1, $2, $3, $4)',
-                                [newDeckId, card.front || card.word, card.back || card.translation, card.is_favorite || false]
+                                'INSERT INTO user_cards (deck_id, front, back, is_favorite, is_forgotten) VALUES ($1, $2, $3, $4, $5)',
+                                [newDeckId, card.front || card.word, card.back || card.translation, card.is_favorite || false, card.is_forgotten || false]
                             );
                         }
                     }
@@ -522,6 +648,27 @@ app.delete('/api/decks/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Update deck
+app.put('/api/decks/:id', authenticateToken, async (req, res) => {
+    try {
+        const { name, description, custom_image } = req.body;
+        
+        const result = await pool.query(
+            'UPDATE user_decks SET name = $1, description = $2, custom_image = $3 WHERE id = $4 AND user_id = $5 RETURNING *',
+            [name, description || '', custom_image || null, req.params.id, req.user.id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Колода не найдена' });
+        }
+        
+        res.json({ deck: result.rows[0] });
+    } catch (error) {
+        console.error('Update deck error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
 // Get cards in deck
 app.get('/api/decks/:id/cards', authenticateToken, async (req, res) => {
     try {
@@ -541,6 +688,16 @@ app.post('/api/decks/:id/cards', authenticateToken, async (req, res) => {
     try {
         const { front, back } = req.body;
 
+        // Verify deck belongs to user
+        const deckCheck = await pool.query(
+            'SELECT id FROM user_decks WHERE id = $1 AND user_id = $2',
+            [req.params.id, req.user.id]
+        );
+        
+        if (deckCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Колода не найдена' });
+        }
+
         const result = await pool.query(
             'INSERT INTO user_cards (deck_id, front, back) VALUES ($1, $2, $3) RETURNING *',
             [req.params.id, front, back]
@@ -557,8 +714,8 @@ app.post('/api/decks/:id/cards', authenticateToken, async (req, res) => {
 app.put('/api/cards/:id/favorite', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
-            'UPDATE user_cards SET is_favorite = NOT is_favorite WHERE id = $1 RETURNING *',
-            [req.params.id]
+            'UPDATE user_cards SET is_favorite = NOT is_favorite WHERE id = $1 AND deck_id IN (SELECT id FROM user_decks WHERE user_id = $2) RETURNING *',
+            [req.params.id, req.user.id]
         );
         res.json({ card: result.rows[0] });
     } catch (error) {
@@ -567,10 +724,99 @@ app.put('/api/cards/:id/favorite', authenticateToken, async (req, res) => {
     }
 });
 
+// Toggle forgotten (set specific value)
+app.put('/api/cards/:id/forgotten', authenticateToken, async (req, res) => {
+    try {
+        const { is_forgotten } = req.body;
+        const boolValue = is_forgotten === true || is_forgotten === 1 || is_forgotten === 'true' || is_forgotten === '1';
+        
+        console.log('FORGOTTEN ENDPOINT:', { cardId: req.params.id, is_forgotten, boolValue });
+        
+        const result = await pool.query(
+            'UPDATE user_cards SET is_forgotten = $1 WHERE id = $2 AND deck_id IN (SELECT id FROM user_decks WHERE user_id = $3) RETURNING *',
+            [boolValue, req.params.id, req.user.id]
+        );
+        
+        console.log('FORGOTTEN RESULT:', result.rows.length);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Карточка не найдена' });
+        }
+        
+        res.json({ card: result.rows[0] });
+    } catch (error) {
+        console.error('Toggle forgotten error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Update card
+app.put('/api/cards/:id', authenticateToken, async (req, res) => {
+    try {
+        const { front, back, is_forgotten, is_favorite } = req.body;
+        
+        console.log('UPDATE CARD REQUEST:', { cardId: req.params.id, userId: req.user.id, is_forgotten, is_favorite });
+        
+        // Build dynamic update query with proper parameter placeholders
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+        
+        if (front !== undefined) {
+            updates.push(`front = ${paramIndex}`);
+            values.push(front);
+            paramIndex++;
+        }
+        if (back !== undefined) {
+            updates.push(`back = ${paramIndex}`);
+            values.push(back);
+            paramIndex++;
+        }
+        if (is_forgotten !== undefined) {
+            updates.push(`is_forgotten = ${paramIndex}`);
+            // Convert to boolean - handles both boolean and integer (0/1)
+            values.push(is_forgotten === true || is_forgotten === 1 || is_forgotten === 'true' || is_forgotten === '1');
+            paramIndex++;
+        }
+        if (is_favorite !== undefined) {
+            updates.push(`is_favorite = ${paramIndex}`);
+            // Convert to boolean - handles both boolean and integer (0/1)
+            values.push(is_favorite === true || is_favorite === 1 || is_favorite === 'true' || is_favorite === '1');
+            paramIndex++;
+        }
+        
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'Нет данных для обновления' });
+        }
+        
+        values.push(req.params.id);
+        values.push(req.user.id);
+        
+        console.log('UPDATE CARD SQL:', `UPDATE user_cards SET ${updates.join(', ')} WHERE id = $5 AND deck_id IN (SELECT id FROM user_decks WHERE user_id = $6)`);
+        console.log('UPDATE CARD VALUES:', values);
+        
+        const result = await pool.query(
+            `UPDATE user_cards SET ${updates.join(', ')} WHERE id = $5 AND deck_id IN (SELECT id FROM user_decks WHERE user_id = $6) RETURNING *`,
+            values
+        );
+        
+        console.log('UPDATE CARD RESULT:', result.rows.length, result.rows[0]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Карточка не найдена' });
+        }
+        
+        res.json({ card: result.rows[0] });
+    } catch (error) {
+        console.error('Update card error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
 // Delete card
 app.delete('/api/cards/:id', authenticateToken, async (req, res) => {
     try {
-        await pool.query('DELETE FROM user_cards WHERE id = $1', [req.params.id]);
+        await pool.query('DELETE FROM user_cards WHERE id = $1 AND deck_id IN (SELECT id FROM user_decks WHERE user_id = $2)', [req.params.id, req.user.id]);
         res.json({ message: 'Карточка удалена' });
     } catch (error) {
         console.error('Delete card error:', error);
@@ -776,3 +1022,5 @@ app.get('/api/public-decks/:id/cards', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
+
