@@ -58,6 +58,19 @@
                     </label>
                 </div>
             </div>
+            <div class="form-group">
+                <label>Обложка колоды</label>
+                <div class="deck-image-upload" id="adminDeckImageUpload">
+                    <div class="deck-image-preview" id="adminDeckImagePreview">
+                        <div class="deck-image-placeholder">
+                            <span class="deck-image-icon">🖼️</span>
+                            <span class="deck-image-text">Нажмите для загрузки</span>
+                        </div>
+                    </div>
+                    <input type="file" id="adminDeckImageInput" accept="image/*" style="display: none;">
+                </div>
+                <button class="btn-small btn-outline" id="removeAdminDeckImage" style="display: none; margin-top: 8px;">Удалить изображение</button>
+            </div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn" id="savePublicDeckBtn">Сохранить</button>
                 <button class="btn btn-outline" id="cancelPublicDeckBtn">Отмена</button>

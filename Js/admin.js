@@ -2,6 +2,21 @@
 
 let currentEditingDeckId = null;
 let currentCardsDeckId = null;
+let selectedAdminImageFile = null;
+let selectedAdminImageString = null;
+
+function resetAdminImagePreview() {
+    selectedAdminImageFile = null;
+    selectedAdminImageString = null;
+    document.getElementById('adminDeckImageInput').value = '';
+    document.getElementById('adminDeckImagePreview').innerHTML = `
+        <div class="deck-image-placeholder">
+            <span class="deck-image-icon">🖼️</span>
+            <span class="deck-image-text">Нажмите для загрузки</span>
+        </div>
+    `;
+    document.getElementById('removeAdminDeckImage').style.display = 'none';
+}
 
 function initAdminPage() {
     const userStr = localStorage.getItem('lexy_user');
@@ -16,6 +31,38 @@ function initAdminPage() {
     
     loadPublicDecks();
     
+    // Initialize image upload
+    const adminDeckImageInput = document.getElementById('adminDeckImageInput');
+    const adminDeckImagePreview = document.getElementById('adminDeckImagePreview');
+    const removeAdminDeckImage = document.getElementById('removeAdminDeckImage');
+
+    if (adminDeckImagePreview && adminDeckImageInput) {
+        adminDeckImagePreview.addEventListener('click', () => adminDeckImageInput.click());
+        
+        adminDeckImageInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                if (!file.type.startsWith('image/')) {
+                    showNotification('Пожалуйста, выберите изображение', 'error');
+                    return;
+                }
+                
+                selectedAdminImageFile = file;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    selectedAdminImageString = e.target.result;
+                    adminDeckImagePreview.innerHTML = `<img src="${selectedAdminImageString}" alt="Обложка" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    removeAdminDeckImage.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        if (removeAdminDeckImage) {
+            removeAdminDeckImage.addEventListener('click', resetAdminImagePreview);
+        }
+    }
+
     // Create deck button
     document.getElementById('createPublicDeckBtn').addEventListener('click', () => {
         currentEditingDeckId = null;
@@ -27,6 +74,7 @@ function initAdminPage() {
         document.getElementById('publicDeckCategoryNew').checked = false;
         document.getElementById('publicDeckCategoryPopular').checked = false;
         document.getElementById('publicDeckCategoryRecommended').checked = false;
+        resetAdminImagePreview();
         document.getElementById('publicDeckModal').classList.add('active');
     });
     
@@ -60,9 +108,10 @@ async function loadPublicDecks() {
         
         container.innerHTML = result.decks.map(deck => `
             <div class="deck-card admin-deck-card" data-deck-id="${deck.id}">
-                <div class="deck-preview">
+                <div class="deck-preview" style="${deck.custom_image ? 'background: none;' : ''}">
+                    ${deck.custom_image ? `<img src="${deck.custom_image}" alt="${deck.name.replace(/"/g, '&quot;')}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
                     <div class="deck-actions">
-                        <button class="btn-icon" onclick="event.stopPropagation(); editPublicDeck(${deck.id}, '${deck.name}', '${deck.description || ''}', '${deck.lang}', '${deck.category || ''}')" title="Редактировать">✎</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); editPublicDeck(${deck.id}, '${deck.name.replace(/'/g, "\\'")}', '${(deck.description || '').replace(/'/g, "\\'")}', '${deck.lang}', '${deck.category || ''}', '${deck.custom_image || ''}')" title="Редактировать">✎</button>
                         <button class="btn-icon" onclick="event.stopPropagation(); deletePublicDeck(${deck.id})" title="Удалить">×</button>
                     </div>
                 </div>
@@ -77,7 +126,7 @@ async function loadPublicDecks() {
     }
 }
 
-function editPublicDeck(id, name, description, lang, category = '') {
+function editPublicDeck(id, name, description, lang, category = '', custom_image = '') {
     currentEditingDeckId = id;
     document.getElementById('publicDeckModalTitle').textContent = 'Редактировать колоду';
     document.getElementById('publicDeckName').value = name;
@@ -90,6 +139,13 @@ function editPublicDeck(id, name, description, lang, category = '') {
     document.getElementById('publicDeckCategoryPopular').checked = categories.includes('popular');
     document.getElementById('publicDeckCategoryRecommended').checked = categories.includes('recommended');
     
+    resetAdminImagePreview();
+    if (custom_image) {
+        selectedAdminImageString = custom_image;
+        document.getElementById('adminDeckImagePreview').innerHTML = `<img src="${custom_image}" alt="Обложка" style="width: 100%; height: 100%; object-fit: cover;">`;
+        document.getElementById('removeAdminDeckImage').style.display = 'block';
+    }
+
     document.getElementById('publicDeckModal').classList.add('active');
 }
 
@@ -114,14 +170,26 @@ async function savePublicDeck() {
     }
     
     try {
-        if (currentEditingDeckId) {
-            await ApiService.updatePublicDeck(currentEditingDeckId, name, description, lang, category);
+        let deckId = currentEditingDeckId;
+
+        if (deckId) {
+            await ApiService.updatePublicDeck(deckId, name, description, lang, category, selectedAdminImageFile ? null : selectedAdminImageString);
             showNotification('Колода обновлена');
         } else {
-            await ApiService.createPublicDeck(name, description, lang, category);
+            const createResult = await ApiService.createPublicDeck(name, description, lang, category);
+            deckId = createResult.deck.id;
             showNotification('Колода создана');
         }
         
+        if (selectedAdminImageFile) {
+            try {
+                await ApiService.uploadPublicDeckImage(deckId, selectedAdminImageFile);
+            } catch (imageErr) {
+                console.error('Failed to upload image:', imageErr);
+                showNotification('Колода сохранена, но обложку загрузить не удалось', 'error');
+            }
+        }
+
         document.getElementById('publicDeckModal').classList.remove('active');
         loadPublicDecks();
         

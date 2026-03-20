@@ -5,13 +5,21 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configure multer for memory storage
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files from root directory
 app.use(express.static(path.join(__dirname, '..')));
@@ -118,6 +126,17 @@ async function initDatabase() {
             // Column might already exist
         }
 
+        // Add deck_images table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS deck_images (
+                id SERIAL PRIMARY KEY,
+                deck_id INTEGER REFERENCES user_decks(id) ON DELETE CASCADE UNIQUE,
+                image_data BYTEA NOT NULL,
+                mime_type VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Create user_cards table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS user_cards (
@@ -187,6 +206,26 @@ async function initDatabase() {
         } catch (e) {
             // May fail if column doesn't exist
         }
+
+        // Add custom_image column if not exists
+        try {
+            await pool.query(`
+                ALTER TABLE public_decks ADD COLUMN IF NOT EXISTS custom_image TEXT
+            `);
+        } catch (e) {
+            // Column might already exist
+        }
+
+        // Add public_deck_images table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS public_deck_images (
+                id SERIAL PRIMARY KEY,
+                deck_id INTEGER REFERENCES public_decks(id) ON DELETE CASCADE UNIQUE,
+                image_data BYTEA NOT NULL,
+                mime_type VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
         // Create public_cards table
         await pool.query(`
@@ -561,6 +600,16 @@ app.put('/api/sync', authenticateToken, async (req, res) => {
         try {
             await client.query('BEGIN');
             
+            // Backup existing deck images before deletion
+            const imagesBackup = {};
+            const imagesResult = await client.query(
+                'SELECT di.deck_id, di.image_data, di.mime_type FROM deck_images di JOIN user_decks ud ON di.deck_id = ud.id WHERE ud.user_id = $1',
+                [req.user.id]
+            );
+            imagesResult.rows.forEach(row => {
+                imagesBackup[row.deck_id] = row;
+            });
+
             // Delete existing decks and cards
             await client.query(
                 'DELETE FROM user_cards WHERE deck_id IN (SELECT id FROM user_decks WHERE user_id = $1)',
@@ -574,12 +623,31 @@ app.put('/api/sync', authenticateToken, async (req, res) => {
             // Insert decks and cards
             if (decks && Array.isArray(decks)) {
                 for (const deck of decks) {
+                    let customImage = deck.customImage || null;
+                    
                     const deckResult = await client.query(
                         'INSERT INTO user_decks (user_id, name, description, custom_image, source, public_deck_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-                        [req.user.id, deck.name, deck.description || '', deck.customImage || null, deck.source || 'created', deck.publicDeckId || null]
+                        [req.user.id, deck.name, deck.description || '', customImage, deck.source || 'created', deck.publicDeckId || null]
                     );
                     const newDeckId = deckResult.rows[0].id;
                     
+                    // Recover image if it was pointing to an old deck ID
+                    if (customImage && typeof customImage === 'string') {
+                        const match = customImage.match(new RegExp('^/api/decks/(\\\\d+)/image'));
+                        if (match) {
+                            const oldDeckId = parseInt(match[1], 10);
+                            const backup = imagesBackup[oldDeckId];
+                            if (backup) {
+                                await client.query(
+                                    'INSERT INTO deck_images (deck_id, image_data, mime_type) VALUES ($1, $2, $3)',
+                                    [newDeckId, backup.image_data, backup.mime_type]
+                                );
+                                const newImageUrl = `/api/decks/${newDeckId}/image?t=${Date.now()}`;
+                                await client.query('UPDATE user_decks SET custom_image = $1 WHERE id = $2', [newImageUrl, newDeckId]);
+                            }
+                        }
+                    }
+
                     // Insert cards for this deck
                     if (deck.cards && Array.isArray(deck.cards)) {
                         for (const card of deck.cards) {
@@ -623,11 +691,11 @@ app.get('/api/decks', authenticateToken, async (req, res) => {
 // Create deck
 app.post('/api/decks', authenticateToken, async (req, res) => {
     try {
-        const { name, description } = req.body;
+        const { name, description, source, public_deck_id } = req.body;
 
         const result = await pool.query(
-            'INSERT INTO user_decks (user_id, name, description) VALUES ($1, $2, $3) RETURNING *',
-            [req.user.id, name, description]
+            'INSERT INTO user_decks (user_id, name, description, source, public_deck_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [req.user.id, name, description || '', source || 'created', public_deck_id || null]
         );
 
         res.json({ deck: result.rows[0] });
@@ -665,6 +733,60 @@ app.put('/api/decks/:id', authenticateToken, async (req, res) => {
         res.json({ deck: result.rows[0] });
     } catch (error) {
         console.error('Update deck error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Upload deck cover image
+app.post('/api/decks/:id/image', authenticateToken, upload.single('image'), async (req, res) => {
+    try {
+        const deckCheck = await pool.query('SELECT id FROM user_decks WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+        if (deckCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Колода не найдена' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'Изображение не загружено' });
+        }
+
+        const imageUrl = `/api/decks/${req.params.id}/image?t=${Date.now()}`;
+
+        // Save binary data to separate table
+        await pool.query(
+            `INSERT INTO deck_images (deck_id, image_data, mime_type) 
+             VALUES ($1, $2, $3) 
+             ON CONFLICT (deck_id) 
+             DO UPDATE SET image_data = EXCLUDED.image_data, mime_type = EXCLUDED.mime_type`,
+            [req.params.id, req.file.buffer, req.file.mimetype]
+        );
+
+        // Update deck custom_image URL
+        const result = await pool.query(
+            'UPDATE user_decks SET custom_image = $1 WHERE id = $2 RETURNING *',
+            [imageUrl, req.params.id]
+        );
+
+        res.json({ deck: result.rows[0], imageUrl });
+    } catch (error) {
+        console.error('Upload image error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Get deck cover image
+app.get('/api/decks/:id/image', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT image_data, mime_type FROM deck_images WHERE deck_id = $1', [req.params.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Изображение не найдено' });
+        }
+
+        const image = result.rows[0];
+        res.set('Content-Type', image.mime_type);
+        res.send(image.image_data);
+    } catch (error) {
+        console.error('Get image error:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
@@ -906,15 +1028,71 @@ app.put('/api/admin/public-decks/:id', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'Доступ запрещён' });
         }
         
-        const { name, description, lang, category } = req.body;
+const { name, description, lang, category, custom_image } = req.body;
         const categoryValue = category && category.trim() ? category.trim() : '';
         const result = await pool.query(
-            'UPDATE public_decks SET name = $1, description = $2, lang = $3, category = $4 WHERE id = $5 RETURNING *',
-            [name, description, lang, categoryValue, req.params.id]
+            'UPDATE public_decks SET name = $1, description = $2, lang = $3, category = $4, custom_image = $5 WHERE id = $6 RETURNING *',
+            [name, description, lang, categoryValue, custom_image || null, req.params.id]
         );
         res.json({ deck: result.rows[0] });
     } catch (error) {
         console.error('Update public deck error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Upload public deck cover image
+app.post('/api/admin/public-decks/:id/image', authenticateToken, upload.single('image'), async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Доступ запрещён' });
+        }
+
+        const deckCheck = await pool.query('SELECT id FROM public_decks WHERE id = $1', [req.params.id]);
+        if (deckCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Колода не найдена' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'Изображение не загружено' });
+        }
+
+        const imageUrl = `/api/public-decks/${req.params.id}/image?t=${Date.now()}`;
+
+        await pool.query(
+            `INSERT INTO public_deck_images (deck_id, image_data, mime_type) 
+             VALUES ($1, $2, $3) 
+             ON CONFLICT (deck_id) 
+             DO UPDATE SET image_data = EXCLUDED.image_data, mime_type = EXCLUDED.mime_type`,
+            [req.params.id, req.file.buffer, req.file.mimetype]
+        );
+
+        const result = await pool.query(
+            'UPDATE public_decks SET custom_image = $1 WHERE id = $2 RETURNING *',
+            [imageUrl, req.params.id]
+        );
+
+        res.json({ deck: result.rows[0], imageUrl });
+    } catch (error) {
+        console.error('Upload public image error:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Get public deck cover image
+app.get('/api/public-decks/:id/image', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT image_data, mime_type FROM public_deck_images WHERE deck_id = $1', [req.params.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Изображение не найдено' });
+        }
+
+        const image = result.rows[0];
+        res.set('Content-Type', image.mime_type);
+        res.send(image.image_data);
+    } catch (error) {
+        console.error('Get public image error:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });

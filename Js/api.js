@@ -117,11 +117,11 @@ const ApiService = {
         return data;
     },
 
-    async createDeck(name, description) {
+    async createDeck(name, description, source = 'created', public_deck_id = null) {
         const response = await fetch(`${API_URL}/decks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ name, description })
+            body: JSON.stringify({ name, description, source, public_deck_id })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to create deck');
@@ -146,6 +146,20 @@ const ApiService = {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to update deck');
+        return data;
+    },
+
+    async uploadDeckImage(id, file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`${API_URL}/decks/${id}/image`, {
+            method: 'POST',
+            headers: getAuthHeaders(), // FormData shouldn't have Content-Type header set manually
+            body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to upload image');
         return data;
     },
 
@@ -298,14 +312,28 @@ const ApiService = {
         return data;
     },
 
-    async updatePublicDeck(id, name, description, lang, category = '') {
+    async updatePublicDeck(id, name, description, lang, category = '', custom_image = null) {
         const response = await fetch(`${API_URL}/admin/public-decks/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ name, description, lang, category })
+            body: JSON.stringify({ name, description, lang, category, custom_image })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to update deck');
+        return data;
+    },
+
+    async uploadPublicDeckImage(id, file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`${API_URL}/admin/public-decks/${id}/image`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to upload image');
         return data;
     },
 

@@ -144,6 +144,7 @@ function showCreateDeckModal() {
     
     // Обработчик загрузки изображения
     let selectedImage = null;
+    let selectedImageFile = null;
     const deckImageInput = document.getElementById('deckImageInput');
     const deckImagePreview = document.getElementById('deckImagePreview');
     const removeDeckImage = document.getElementById('removeDeckImage');
@@ -163,6 +164,8 @@ function showCreateDeckModal() {
                 return;
             }
             
+            selectedImageFile = file;
+            
             const reader = new FileReader();
             reader.onload = (e) => {
                 selectedImage = e.target.result;
@@ -175,6 +178,7 @@ function showCreateDeckModal() {
         if (removeDeckImage) {
             removeDeckImage.addEventListener('click', () => {
                 selectedImage = null;
+                selectedImageFile = null;
                 deckImagePreview.innerHTML = `
                     <div class="deck-image-placeholder">
                         <span class="deck-image-icon">🖼️</span>
@@ -292,7 +296,10 @@ function showCreateDeckModal() {
                                 }
                             }
                             
-                            if (selectedImage) {
+                            if (selectedImageFile) {
+                                const uploadResult = await ApiService.uploadDeckImage(newDeck.id, selectedImageFile);
+                                newDeck.customImage = API_URL.replace('/api', '') + uploadResult.imageUrl;
+                            } else if (selectedImage) {
                                 await ApiService.updateDeck(newDeck.id, name, '', selectedImage);
                             }
                         } catch (e) {
@@ -328,7 +335,10 @@ function showCreateDeckModal() {
                     const result = await ApiService.createDeck(name, '');
                     newDeck.id = result.deck.id;
                     // Update custom image
-                    if (selectedImage) {
+                    if (selectedImageFile) {
+                        const uploadResult = await ApiService.uploadDeckImage(newDeck.id, selectedImageFile);
+                        newDeck.customImage = API_URL.replace('/api', '') + uploadResult.imageUrl;
+                    } else if (selectedImage) {
                         await ApiService.updateDeck(newDeck.id, name, '', selectedImage);
                     }
                 } catch (e) {
@@ -488,9 +498,10 @@ function showAddCardModal(deckId) {
             }
             
             saveState();
-            
+
             modal.classList.remove('active');
             viewCards(deckId);
+            renderUserDecks(); // Обновляем список колод на фоне для актуального счетчика
             showNotification('Карточка добавлена');
         }
     });
@@ -1189,6 +1200,7 @@ function changeDeckImage(deckId) {
     });
     
     let selectedImage = deck.customImage || null;
+    let selectedImageFile = null;
     const deckImageInput = document.getElementById('deckImageInput');
     const deckImagePreview = document.getElementById('deckImagePreview');
     const removeDeckImage = document.getElementById('removeDeckImage');
@@ -1208,6 +1220,8 @@ function changeDeckImage(deckId) {
                 return;
             }
             
+            selectedImageFile = file;
+            
             const reader = new FileReader();
             reader.onload = (e) => {
                 selectedImage = e.target.result;
@@ -1220,6 +1234,7 @@ function changeDeckImage(deckId) {
         if (removeDeckImage) {
             removeDeckImage.addEventListener('click', () => {
                 selectedImage = null;
+                selectedImageFile = null;
                 deckImagePreview.innerHTML = `
                     <div class="deck-image-placeholder">
                         <span class="deck-image-icon">🖼️</span>
@@ -1238,7 +1253,12 @@ function changeDeckImage(deckId) {
         // Send to server only if deck has numeric server ID
         if (AppState.user && AppState.user.isRegistered && typeof deck.id === 'number') {
             try {
-                await ApiService.updateDeck(deck.id, deck.name, deck.description || '', deck.customImage || null);
+                if (selectedImageFile) {
+                    const uploadResult = await ApiService.uploadDeckImage(deck.id, selectedImageFile);
+                    deck.customImage = API_URL.replace('/api', '') + uploadResult.imageUrl;
+                } else {
+                    await ApiService.updateDeck(deck.id, deck.name, deck.description || '', deck.customImage || null);
+                }
             } catch (e) {
                 console.error('Failed to update deck on server:', e);
             }
@@ -1267,9 +1287,10 @@ function deleteCard(deckId, cardId) {
                     console.error('Failed to delete card on server:', e);
                 }
             }
-            
+
             saveState();
             viewCards(deckId);
+            renderUserDecks(); // Обновляем список колод на фоне для актуального счетчика
         }
     }
 }

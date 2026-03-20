@@ -53,7 +53,7 @@ function getAdminButtons(deck) {
     if (user && user.role === 'admin') {
         return `
             <div class="admin-deck-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; z-index: 10;">
-                <button class="btn-icon" onclick="event.stopPropagation(); editLibraryDeck(${deck.id}, '${deck.name}', '${deck.description || ''}', '${deck.lang}', '${deck.category || ''}')" title="Редактировать">✎</button>
+                <button class="btn-icon" onclick="event.stopPropagation(); editLibraryDeck(${deck.id}, '${deck.name.replace(/'/g, "\\'")}', '${(deck.description || '').replace(/'/g, "\\'")}', '${deck.lang}', '${deck.category || ''}', '${deck.custom_image || ''}')" title="Редактировать">✎</button>
                 <button class="btn-icon" onclick="event.stopPropagation(); deleteLibraryDeck(${deck.id})" title="Удалить">×</button>
             </div>
         `;
@@ -78,7 +78,8 @@ function renderRecommendedDecks(decks = []) {
     
     container.innerHTML = decksToRender.map(deck => `
         <div class="deck-card" onclick="addPublicDeck('${deck.id}')">
-            <div class="deck-preview" style="background: linear-gradient(135deg, var(--accent), var(--accent-hover));">
+            <div class="deck-preview" style="${deck.custom_image ? 'background: none;' : 'background: linear-gradient(135deg, var(--accent), var(--accent-hover));'}">
+                ${deck.custom_image ? `<img src="${deck.custom_image}" alt="${deck.name}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
                 ${getAdminButtons(deck)}
                 <div class="deck-actions">
                     <button class="btn-icon">+</button>
@@ -109,7 +110,8 @@ function renderPopularDecks(decks = []) {
     
     container.innerHTML = decksToRender.map(deck => `
         <div class="deck-card" onclick="addPublicDeck('${deck.id}')">
-            <div class="deck-preview" style="background: linear-gradient(135deg, #ff9f0a, #ff6b0a);">
+            <div class="deck-preview" style="${deck.custom_image ? 'background: none;' : 'background: linear-gradient(135deg, #ff9f0a, #ff6b0a);'}">
+                ${deck.custom_image ? `<img src="${deck.custom_image}" alt="${deck.name}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
                 ${getAdminButtons(deck)}
                 <div class="deck-actions">
                     <button class="btn-icon">+</button>
@@ -140,7 +142,8 @@ function renderNewDecks(decks = []) {
     
     container.innerHTML = decksToRender.map(deck => `
         <div class="deck-card" onclick="addPublicDeck('${deck.id}')">
-            <div class="deck-preview" style="background: linear-gradient(135deg, #34c759, #30b753);">
+            <div class="deck-preview" style="${deck.custom_image ? 'background: none;' : 'background: linear-gradient(135deg, #34c759, #30b753);'}">
+                ${deck.custom_image ? `<img src="${deck.custom_image}" alt="${deck.name}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
                 ${getAdminButtons(deck)}
                 <div class="deck-actions">
                     <button class="btn-icon">+</button>
@@ -183,7 +186,8 @@ async function addPublicDeck(deckId) {
             createdAt: new Date().toISOString(),
             isFavorite: false,
             source: 'public',
-            publicDeckId: staticDeck.id
+            publicDeckId: staticDeck.id,
+            customImage: staticDeck.custom_image || null
         };
         
         AppState.userDecks.push(newDeck);
@@ -191,8 +195,11 @@ async function addPublicDeck(deckId) {
         // Sync with server immediately if user is registered
         if (AppState.user && AppState.user.isRegistered) {
             try {
-                const result = await ApiService.createDeck(newDeck.name, '');
+                const result = await ApiService.createDeck(newDeck.name, '', newDeck.source, newDeck.publicDeckId);
                 newDeck.id = result.deck.id;
+                if (newDeck.customImage) {
+                    await ApiService.updateDeck(newDeck.id, newDeck.name, '', newDeck.customImage);
+                }
             } catch (e) {
                 console.error('Failed to sync deck to server:', e);
             }
@@ -244,7 +251,8 @@ async function addPublicDeck(deckId) {
         createdAt: new Date().toISOString(),
         isFavorite: false,
         source: 'public',
-        publicDeckId: deck.id
+        publicDeckId: deck.id,
+        customImage: deck.custom_image || null
     };
     
     AppState.userDecks.push(newDeck);
@@ -253,12 +261,17 @@ async function addPublicDeck(deckId) {
     if (AppState.user && AppState.user.isRegistered) {
         try {
             // Create deck on server
-            const result = await ApiService.createDeck(newDeck.name, '');
+            const result = await ApiService.createDeck(newDeck.name, '', newDeck.source, newDeck.publicDeckId);
             const serverDeckId = result.deck.id;
-            
+
             // Update deck with server ID
             newDeck.id = serverDeckId;
-            
+
+            // Sync custom image to server
+            if (newDeck.customImage) {
+                await ApiService.updateDeck(serverDeckId, newDeck.name, '', newDeck.customImage);
+            }
+
             // Add cards to deck on server
             for (const card of cards) {
                 try {
@@ -280,8 +293,11 @@ async function addPublicDeck(deckId) {
 
 // Admin functions for library
 
-function editLibraryDeck(id, name, description, lang, category = '') {
+let currentLibraryDeckImage = null;
+
+function editLibraryDeck(id, name, description, lang, category = '', custom_image = '') {
     currentEditingDeckId = id;
+    currentLibraryDeckImage = custom_image;
     document.getElementById('libraryDeckModalTitle').textContent = 'Редактировать колоду';
     document.getElementById('libraryDeckName').value = name;
     document.getElementById('libraryDeckDescription').value = description || '';
@@ -323,9 +339,9 @@ async function saveLibraryDeck() {
         showNotification('Введите название', 'error');
         return;
     }
-    
+
     try {
-        await ApiService.updatePublicDeck(currentEditingDeckId, name, description, lang, category);
+        await ApiService.updatePublicDeck(currentEditingDeckId, name, description, lang, category, currentLibraryDeckImage);
         showNotification('Колода обновлена');
         document.getElementById('libraryDeckModal').classList.remove('active');
         loadPublicDecksFromServer();
