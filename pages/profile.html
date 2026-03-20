@@ -1,0 +1,85 @@
+<div class="profile-page">
+    <h1>Профиль</h1>
+    
+    <div class="profile-header">
+        <div class="avatar" id="avatarDisplay">👤</div>
+        <div style="flex: 1">
+            <h2 id="userNameDisplay">Пользователь</h2>
+            <div style="color: var(--text-secondary); font-size: 14px;" id="userUsernameDisplay">@username</div>
+            <span class="user-role-badge" id="userRoleBadge" style="display: none;">user</span>
+        </div>
+        <button class="btn-outline btn-small" id="editProfileBtn"><img src="icons/edit.svg" alt="" width="14" height="14" style="margin-right: 6px; vertical-align: middle;"> Редактировать</button>
+    </div>
+    
+    <!-- Настройки -->
+    <div class="settings-section">
+        <h2>Настройки</h2>
+        
+        <div class="settings-item">
+            <span class="theme-label">
+                <span class="theme-icon sun-icon"><img src="icons/sun.svg" alt="" width="20" height="20"></span>
+                <span class="theme-icon moon-icon"><img src="icons/moon.svg" alt="" width="20" height="20"></span>
+                <span id="themeLabelText">Темная тема</span>
+            </span>
+            <label class="iphone-toggle">
+                <input type="checkbox" id="themeToggle">
+                <span class="iphone-slider"></span>
+            </label>
+        </div>
+    </div>
+    
+    <!-- Данные -->
+    <div class="settings-section">
+        <h2>Данные</h2>
+        
+        <div class="settings-item">
+            <span class="export-label"><span class="icon-circle"><img src="icons/export.svg" alt="" width="14" height="14"></span>Экспорт данных</span>
+            <button class="btn-small" id="exportData">Скачать</button>
+        </div>
+        
+        <div class="settings-item">
+            <span class="import-label"><span class="icon-circle"><img src="icons/import.svg" alt="" width="14" height="14"></span>Импорт данных</span>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+            <button class="btn-small" id="importBtn">Выбрать</button>
+        </div>
+    </div>
+    
+    <!-- Аккаунт -->
+    <div class="settings-section">
+        <h2>Аккаунт</h2>
+        
+        <div class="settings-item">
+            <span><span class="icon-circle"><img src="icons/exit.svg" alt="" width="14" height="14"></span>Выйти</span>
+            <button class="btn-small btn-outline" id="logoutBtn">Выход</button>
+        </div>
+        
+        <div class="settings-item">
+            <span><span class="icon-circle"><img src="icons/trash.svg" alt="" width="14" height="14"></span>Очистить данные</span>
+            <button class="btn-small btn-outline" id="clearDataBtn">Очистить</button>
+        </div>
+        
+        <div class="settings-item">
+            <span><span class="icon-circle"><img src="icons/delete.svg" alt="" width="14" height="14"></span>Удалить аккаунт</span>
+            <button class="btn-small" style="background: var(--danger); color: white;" id="deleteAccountBtn">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка редактирования профиля -->
+<template id="editProfileModal">
+    <div>
+        <div class="form-group">
+            <label>Имя</label>
+            <input type="text" id="editName" placeholder="Ваше имя">
+        </div>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="editUsername" placeholder="username">
+        </div>
+        <div class="form-group">
+            <label>Аватар (эмодзи)</label>
+            <input type="text" id="editAvatar" placeholder="👤" maxlength="2">
+        </div>
+        <button class="btn" id="saveProfileBtn">Сохранить</button>
+    </div>
+</template>

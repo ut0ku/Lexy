@@ -1,0 +1,100 @@
+<div class="landing-page">
+    <!-- Hero секция -->
+    <section class="hero-section">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span>Интервальные повторения</span>
+            </div>
+            <h1 class="hero-title">
+                Запоминать легче с <span class="accent-text">Lexy</span>
+            </h1>
+            <p class="hero-description">
+                Lexy — это программа для изучения языков с помощью карточек. 
+                Она поможет вам тратить больше времени на сложный материал и меньше на то, что вы уже знаете.
+            </p>
+            <div class="hero-actions">
+                <button class="btn-primary" onclick="startDemoCards()">
+                    Попробовать
+                    <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Преимущества -->
+    <section class="features-section">
+        <hgroup class="features-header">
+            <h2>Почему выбирают Lexy</h2>
+        </hgroup>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon icon-smart"></div>
+                <h3>Умные колоды</h3>
+                <p>Автоматические подборки сложных и избранных карточек</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon icon-decks"></div>
+                <h3>Колоды под любые темы</h3>
+                <p>Для путешествий, работы, учёбы или хобби</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon icon-star"></div>
+                <h3>Избранное</h3>
+                <p>Отмечайте важные карточки звездочкой</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon icon-stats"></div>
+                <h3>Живая статистика</h3>
+                <p>Следите за прогрессом и серией занятий</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon icon-import"></div>
+                <h3>Импорт и экспорт</h3>
+                <p>Загружайте готовые списки слов</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon icon-sync"></div>
+                <h3>Единый аккаунт</h3>
+                <p>Синхронизация между устройствами</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo колоды для тестирования -->
+    <section class="demo-section" id="demoCards">
+        <hgroup class="demo-header">
+            <h2>Попробуйте прямо сейчас</h2>
+            <p>Выберите одну из демо колод и начните изучение</p>
+        </hgroup>
+        <div class="demo-decks-grid">
+            <div class="demo-deck-card" onclick="startDemoDeck('demo_basic')">
+                <div class="demo-deck-icon">🇬🇧</div>
+                <h3>Английский базовый</h3>
+                <p>(10 карточек)</p>
+                <span class="demo-deck-start">Начать →</span>
+            </div>
+            <div class="demo-deck-card" onclick="startDemoDeck('demo_travel')">
+                <div class="demo-deck-icon">✈️</div>
+                <h3>Путешествия</h3>
+                <p>(8 карточек)</p>
+                <span class="demo-deck-start">Начать →</span>
+            </div>
+            <div class="demo-deck-card" onclick="startDemoDeck('demo_food')">
+                <div class="demo-deck-icon">🍕</div>
+                <h3>Еда и ресторан</h3>
+                <p>(6 карточек)</p>
+                <span class="demo-deck-start">Начать →</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Секция регистрации после демо -->
+    <div style="text-align: center; padding: 40px 20px;">
+        <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">Понравилось?</h2>
+        <p style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 24px;">Создайте аккаунт, чтобы сохранять прогресс и изучать больше</p>
+        <button class="btn-cta" onclick="showAuth()">
+            Зарегистрироваться
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+    </div>
+</div>

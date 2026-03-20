@@ -1,0 +1,68 @@
+<div class="mydecks-page">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1>Мои колоды</h1>
+    </div>
+    
+    <!-- Постоянные колоды -->
+    <section>
+        <h2>Постоянные</h2>
+        <div class="decks-grid">
+            <!-- Избранное -->
+            <div class="deck-card" id="favoriteDeck">
+                <div class="deck-preview" style="background: linear-gradient(135deg, #ff9f0a, #ff6b0a);">
+                    <div class="deck-actions">
+                        <button class="btn-icon star-btn filled">★</button>
+                    </div>
+                </div>
+                <div class="deck-info">
+                    <div class="deck-name">Избранное</div>
+                    <div class="deck-meta" id="favoriteCount">0 карт</div>
+                </div>
+            </div>
+            
+            <!-- Забытые карты -->
+            <div class="deck-card" id="forgottenDeck">
+                <div class="deck-preview" style="background: linear-gradient(135deg, #8e8e93, #636366);">
+                    <div class="deck-actions">
+                        <button class="btn-icon">📌</button>
+                    </div>
+                </div>
+                <div class="deck-info">
+                    <div class="deck-name">Забытые карты</div>
+                    <div class="deck-meta" id="forgottenCount">0 карт</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Созданные колоды -->
+    <section>
+        <h2>Созданные колоды</h2>
+        <div class="decks-grid" id="createdDecksList"></div>
+    </section>
+    
+    <!-- Добавленные колоды -->
+    <section>
+        <h2>Добавленные колоды</h2>
+        <div class="decks-grid" id="addedDecksList"></div>
+    </section>
+</div>
+
+<!-- Кнопка создания колоды -->
+<button class="btn-create-deck" id="createDeckBtn" title="Создать колоду">+</button>
+
+<!-- Шаблон для карточки колоды -->
+<template id="deckCardTemplate">
+    <div class="deck-card">
+        <div class="deck-preview" style="background: linear-gradient(135deg, var(--accent), var(--accent-hover));">
+            <div class="deck-actions">
+                <button class="btn-icon star-btn">☆</button>
+                <button class="btn-icon menu-btn">⋯</button>
+            </div>
+        </div>
+        <div class="deck-info">
+            <div class="deck-name deck-title"></div>
+            <div class="deck-meta cards-count"></div>
+        </div>
+    </div>
+</template>

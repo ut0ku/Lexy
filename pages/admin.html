@@ -1,0 +1,395 @@
+<div class="admin-page">
+    <h1>Панель администратора</h1>
+    
+    <div class="admin-section">
+        <h2>Публичные колоды библиотеки</h2>
+        <button class="btn" id="createPublicDeckBtn" style="margin-bottom: 20px;">+ Создать колоду</button>
+        
+        <div id="adminDecksList" class="decks-grid">
+            <p style="color: var(--text-secondary);">Загрузка...</p>
+        </div>
+    </div>
+
+    <!-- Modal for creating-editing public deck -->
+    <div class="modal-overlay" id="publicDeckModal">
+        <div class="modal-content">
+            <h3 id="publicDeckModalTitle">Создать колоду</h3>
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Название</label>
+                <input type="text" id="publicDeckName" placeholder="Название колоды">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="publicDeckDescription" placeholder="Описание колоды" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Язык</label>
+                <select id="publicDeckLang">
+                    <option value="Английский">Английский</option>
+                    <option value="Немецкий">Немецкий</option>
+                    <option value="Французский">Французский</option>
+                    <option value="Испанский">Испанский</option>
+                    <option value="Итальянский">Итальянский</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Категории (выберите нужные)</label>
+                <div class="category-buttons" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+                    <label class="category-btn">
+                        <input type="checkbox" id="publicDeckCategoryNew" value="new">
+                        <span class="category-btn-content">
+                            <span class="category-icon">✨</span>
+                            <span>Новые</span>
+                        </span>
+                    </label>
+                    <label class="category-btn">
+                        <input type="checkbox" id="publicDeckCategoryPopular" value="popular">
+                        <span class="category-btn-content">
+                            <span class="category-icon">🔥</span>
+                            <span>Популярные</span>
+                        </span>
+                    </label>
+                    <label class="category-btn">
+                        <input type="checkbox" id="publicDeckCategoryRecommended" value="recommended">
+                        <span class="category-btn-content">
+                            <span class="category-icon">⭐</span>
+                            <span>Рекомендуемые</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Обложка колоды</label>
+                <div class="deck-image-upload" id="adminDeckImageUpload">
+                    <div class="deck-image-preview" id="adminDeckImagePreview">
+                        <div class="deck-image-placeholder">
+                            <span class="deck-image-icon">🖼️</span>
+                            <span class="deck-image-text">Нажмите для загрузки</span>
+                        </div>
+                    </div>
+                    <input type="file" id="adminDeckImageInput" accept="image/*" style="display: none;">
+                </div>
+                <button class="btn-small btn-outline" id="removeAdminDeckImage" style="display: none; margin-top: 8px;">Удалить изображение</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" id="savePublicDeckBtn">Сохранить</button>
+                <button class="btn btn-outline" id="cancelPublicDeckBtn">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for managing cards in public deck -->
+    <div class="modal-overlay" id="publicDeckCardsModal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <h3 id="publicDeckCardsTitle">Управление карточками</h3>
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Добавить карточку</label>
+                <div style="display: flex; gap: 10px; align-items: stretch;">
+                    <input type="text" id="newPublicCardFront" placeholder="Слово" style="flex: 1; min-width: 150px; height: 42px; box-sizing: border-box;">
+                    <input type="text" id="newPublicCardBack" placeholder="Перевод" style="flex: 1; min-width: 150px; height: 42px; box-sizing: border-box;">
+                    <button class="btn" id="addPublicCardBtn" style="width: 170px; flex-shrink: 0; height: 42px; box-sizing: border-box; padding: 0; display: flex; align-items: center; justify-content: center;">+</button>
+                </div>
+            </div>
+            
+            <div id="publicCardsList" style="margin-top: 20px;">
+                <p style="color: var(--text-secondary);">Загрузка...</p>
+            </div>
+            
+            <button class="btn btn-outline" id="closePublicCardsModal" style="margin-top: 20px;">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-page {
+    padding: 20px;
+    position: relative;
+}
+
+.admin-section {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.admin-section h2 {
+    margin-bottom: 15px;
+    color: var(--text-primary);
+}
+
+.decks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 180px));
+    gap: 20px;
+}
+
+.deck-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    animation: cardAppear 0.3s;
+    width: 100%;
+    aspect-ratio: 3/4;
+    display: flex;
+    flex-direction: column;
+}
+
+.deck-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+}
+
+.deck-preview {
+    background: linear-gradient(135deg, #ecc67e, #d4b56a);
+    height: 60%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.deck-info {
+    padding: 12px;
+    background: var(--card-bg);
+    height: 40%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.deck-name {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deck-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.deck-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.deck-card:hover .deck-actions {
+    opacity: 1;
+}
+
+.admin-deck-card .deck-actions .btn-icon {
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.admin-deck-card .deck-actions .btn-icon:hover {
+    background: rgba(0,0,0,0.7);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.public-card-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.public-card-item .card-content {
+    flex: 1;
+    display: flex;
+    gap: 15px;
+}
+
+.public-card-item .card-word,
+.public-card-item .card-translation {
+    color: var(--text-primary);
+}
+
+.public-card-item .card-word {
+    font-weight: 600;
+    min-width: 100px;
+}
+
+.public-card-item .delete-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    display: none;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+}
+
+/* Категории кнопки */
+.category-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.category-btn {
+    position: relative;
+    cursor: pointer;
+}
+
+.category-btn input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.category-btn-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    user-select: none;
+}
+
+.category-icon {
+    font-size: 16px;
+    transition: transform 0.3s ease;
+}
+
+.category-btn:hover .category-btn-content {
+    background: var(--bg-primary);
+    border-color: #ecc67e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(236, 198, 126, 0.2);
+}
+
+.category-btn:hover .category-icon {
+    transform: scale(1.2);
+}
+
+.category-btn input:checked + .category-btn-content {
+    background: linear-gradient(135deg, #ecc67e, #d4b56a);
+    border-color: transparent;
+    color: #1a1a1a;
+    box-shadow: 0 4px 16px rgba(236, 198, 126, 0.4);
+    transform: translateY(-2px);
+}
+
+.category-btn input:checked + .category-btn-content .category-icon {
+    animation: iconPop 0.4s ease;
+}
+
+@keyframes iconPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+}
+
+.category-btn:active .category-btn-content {
+    transform: translateY(0) scale(0.98);
+}
+
+.category-btn input:checked:active + .category-btn-content {
+    transform: translateY(0) scale(0.95);
+}
+
+/* Анимация появления кнопок */
+.category-btn {
+    animation: categoryAppear 0.4s ease backwards;
+}
+
+.category-btn:nth-child(1) { animation-delay: 0.05s; }
+.category-btn:nth-child(2) { animation-delay: 0.1s; }
+.category-btn:nth-child(3) { animation-delay: 0.15s; }
+
+@keyframes categoryAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+</style>
